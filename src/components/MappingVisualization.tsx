@@ -2,338 +2,385 @@ import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { ArrowRight, CheckCircle, ExclamationTriangle, Info, Globe } from '@phosphor-icons/react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ArrowRight, CheckCircle, AlertCircle, XCircle, Globe, BookOpen, Beaker } from '@phosphor-icons/react'
 
-interface TermMapping {
-  namasteCode: string
-  namasteDisplay: string
-  namasteSystem: 'ayurveda' | 'siddha' | 'unani'
-  icd11Code: string
-  icd11Display: string
-  equivalence: 'equivalent' | 'wider' | 'narrower' | 'relatedto' | 'unmatched'
-  confidence: 'high' | 'medium' | 'low'
-  notes?: string
-}
-
-const sampleMappings: TermMapping[] = [
+// Sample mapping data showing NAMASTE to ICD-11 relationships
+const sampleMappings = [
   {
     namasteCode: 'AAE-16',
-    namasteDisplay: 'Sandhigatavata',
-    namasteSystem: 'ayurveda',
+    namasteTerm: 'Sandhigatavata',
+    originalTerm: 'सन्धिगतवात',
+    system: 'ayurveda',
     icd11Code: 'FA20',
-    icd11Display: 'Osteoarthritis',
+    icd11Term: 'Osteoarthritis',
     equivalence: 'equivalent',
-    confidence: 'high',
-    notes: 'Direct conceptual match - both describe degenerative joint disease'
+    confidence: 0.95,
+    mappingType: 'direct',
+    clinicalNotes: 'Direct mapping - both refer to degenerative joint disease'
   },
   {
-    namasteCode: 'AAE-23',
-    namasteDisplay: 'Amavata',
-    namasteSystem: 'ayurveda',
-    icd11Code: 'FA20.0',
-    icd11Display: 'Rheumatoid arthritis',
-    equivalence: 'equivalent',
-    confidence: 'high',
-    notes: 'Strong clinical correlation with autoimmune joint inflammation'
-  },
-  {
-    namasteCode: 'ASE-42',
-    namasteDisplay: 'Pittajanya Jwara',
-    namasteSystem: 'ayurveda',
-    icd11Code: 'MG26',
-    icd11Display: 'Fever, unspecified',
-    equivalence: 'wider',
-    confidence: 'medium',
-    notes: 'NAMASTE term is more specific about etiology (Pitta imbalance)'
-  },
-  {
-    namasteCode: 'SSE-15',
-    namasteDisplay: 'Keel Vayu',
-    namasteSystem: 'siddha',
-    icd11Code: 'FA20&XK9L',
-    icd11Display: 'Osteoarthritis with joint effusion',
-    equivalence: 'narrower',
-    confidence: 'medium',
-    notes: 'ICD-11 cluster provides additional specificity for joint fluid involvement'
-  },
-  {
-    namasteCode: 'USE-11',
-    namasteDisplay: 'Waja ul Mafasil',
-    namasteSystem: 'unani',
-    icd11Code: 'FA20',
-    icd11Display: 'Osteoarthritis',
+    namasteCode: 'AST-23',
+    namasteTerm: 'Amlapitta',
+    originalTerm: 'अम्लपित्त',
+    system: 'ayurveda',
+    icd11Code: 'DA60',
+    icd11Term: 'Gastro-oesophageal reflux disease',
     equivalence: 'relatedto',
-    confidence: 'medium',
-    notes: 'General joint pain concept with multiple possible underlying conditions'
+    confidence: 0.78,
+    mappingType: 'contextual',
+    clinicalNotes: 'Related condition - hyperacidity maps to GERD in biomedical terms'
+  },
+  {
+    namasteCode: 'SUC-45',
+    namasteTerm: 'Vatha Soolai',
+    originalTerm: 'வாத சூலை',
+    system: 'siddha',
+    icd11Code: 'FA20.0&XK8G',
+    icd11Term: 'Rheumatoid arthritis of multiple sites',
+    equivalence: 'wider',
+    confidence: 0.85,
+    mappingType: 'clustered',
+    clinicalNotes: 'Post-coordinated mapping using stem + extension codes'
+  },
+  {
+    namasteCode: 'UNI-12',
+    namasteTerm: 'Waja al-Mafasil',
+    originalTerm: 'وجع المفاصل',
+    system: 'unani',
+    icd11Code: 'MG30',
+    icd11Term: 'Joint pain',
+    equivalence: 'equivalent',
+    confidence: 0.92,
+    mappingType: 'direct',
+    clinicalNotes: 'Exact semantic match for joint pain syndrome'
+  },
+  {
+    namasteCode: 'AYU-78',
+    namasteTerm: 'Kasa',
+    originalTerm: 'कास',
+    system: 'ayurveda',
+    icd11Code: 'MD12',
+    icd11Term: 'Cough',
+    equivalence: 'equivalent',
+    confidence: 0.98,
+    mappingType: 'direct',
+    clinicalNotes: 'Perfect equivalence - symptom-based mapping'
+  },
+  {
+    namasteCode: 'AYU-99',
+    namasteTerm: 'Unmada',
+    originalTerm: 'उन्माद',
+    system: 'ayurveda',
+    icd11Code: null,
+    icd11Term: null,
+    equivalence: 'unmatched',
+    confidence: 0,
+    mappingType: 'unmapped',
+    clinicalNotes: 'Complex traditional concept with no direct biomedical equivalent'
   }
 ]
 
 export default function MappingVisualization() {
-  const [selectedMapping, setSelectedMapping] = useState<TermMapping>(sampleMappings[0])
-  const [filterSystem, setFilterSystem] = useState<'all' | 'ayurveda' | 'siddha' | 'unani'>('all')
-  const [filterEquivalence, setFilterEquivalence] = useState<'all' | 'equivalent' | 'wider' | 'narrower' | 'relatedto' | 'unmatched'>('all')
+  const [selectedMapping, setSelectedMapping] = useState<typeof sampleMappings[0] | null>(null)
+  const [filterEquivalence, setFilterEquivalence] = useState('all')
 
-  const filteredMappings = sampleMappings.filter(mapping => {
-    if (filterSystem !== 'all' && mapping.namasteSystem !== filterSystem) return false
-    if (filterEquivalence !== 'all' && mapping.equivalence !== filterEquivalence) return false
-    return true
-  })
+  const filteredMappings = sampleMappings.filter(mapping => 
+    filterEquivalence === 'all' || mapping.equivalence === filterEquivalence
+  )
 
-  const getEquivalenceBadge = (equivalence: string) => {
-    const variants = {
-      equivalent: { variant: 'default' as const, icon: CheckCircle, color: 'text-green-600' },
-      wider: { variant: 'secondary' as const, icon: ArrowRight, color: 'text-blue-600' },
-      narrower: { variant: 'secondary' as const, icon: ArrowRight, color: 'text-blue-600' },
-      relatedto: { variant: 'outline' as const, icon: Info, color: 'text-yellow-600' },
-      unmatched: { variant: 'destructive' as const, icon: ExclamationTriangle, color: 'text-red-600' }
+  const getEquivalenceIcon = (equivalence: string) => {
+    switch (equivalence) {
+      case 'equivalent':
+        return <CheckCircle className="h-4 w-4 text-green-600" />
+      case 'relatedto':
+        return <AlertCircle className="h-4 w-4 text-yellow-600" />
+      case 'wider':
+      case 'narrower':
+        return <ArrowRight className="h-4 w-4 text-blue-600" />
+      case 'unmatched':
+        return <XCircle className="h-4 w-4 text-red-600" />
+      default:
+        return <AlertCircle className="h-4 w-4 text-gray-600" />
     }
-    
-    const config = variants[equivalence as keyof typeof variants]
-    const Icon = config.icon
-    
-    return (
-      <Badge variant={config.variant} className="flex items-center gap-1">
-        <Icon className={`h-3 w-3 ${config.color}`} />
-        {equivalence}
-      </Badge>
-    )
   }
 
-  const getEquivalenceDescription = (equivalence: string) => {
-    const descriptions = {
-      equivalent: 'The traditional medicine term and ICD-11 code represent the same clinical concept',
-      wider: 'The traditional medicine term covers a broader concept than the specific ICD-11 code',
-      narrower: 'The traditional medicine term is more specific than the broader ICD-11 code',
-      relatedto: 'The terms are clinically related but not directly equivalent',
-      unmatched: 'No suitable equivalent found in ICD-11 classification'
+  const getEquivalenceColor = (equivalence: string) => {
+    switch (equivalence) {
+      case 'equivalent':
+        return 'bg-green-100 text-green-800 border-green-200'
+      case 'relatedto':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      case 'wider':
+      case 'narrower':
+        return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'unmatched':
+        return 'bg-red-100 text-red-800 border-red-200'
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200'
     }
-    return descriptions[equivalence as keyof typeof descriptions]
+  }
+
+  const getSystemIcon = (system: string) => {
+    switch (system) {
+      case 'ayurveda':
+        return <BookOpen className="h-4 w-4 text-traditional" />
+      case 'siddha':
+        return <Globe className="h-4 w-4 text-accent" />
+      case 'unani':
+        return <Beaker className="h-4 w-4 text-secondary" />
+      default:
+        return <BookOpen className="h-4 w-4" />
+    }
+  }
+
+  const stats = {
+    total: sampleMappings.length,
+    equivalent: sampleMappings.filter(m => m.equivalence === 'equivalent').length,
+    relatedto: sampleMappings.filter(m => m.equivalence === 'relatedto').length,
+    wider: sampleMappings.filter(m => m.equivalence === 'wider').length,
+    unmatched: sampleMappings.filter(m => m.equivalence === 'unmatched').length
   }
 
   return (
     <div className="space-y-6">
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Mapping Filters</CardTitle>
-          <CardDescription>
-            Filter mappings by traditional medicine system and equivalence type
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col sm:flex-row gap-4">
-          <div className="space-y-2 flex-1">
-            <label className="text-sm font-medium">Medicine System</label>
-            <Select value={filterSystem} onValueChange={(value) => setFilterSystem(value as any)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Systems</SelectItem>
-                <SelectItem value="ayurveda">Ayurveda</SelectItem>
-                <SelectItem value="siddha">Siddha</SelectItem>
-                <SelectItem value="unani">Unani</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2 flex-1">
-            <label className="text-sm font-medium">Equivalence Type</label>
-            <Select value={filterEquivalence} onValueChange={(value) => setFilterEquivalence(value as any)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="equivalent">Equivalent</SelectItem>
-                <SelectItem value="wider">Wider</SelectItem>
-                <SelectItem value="narrower">Narrower</SelectItem>
-                <SelectItem value="relatedto">Related To</SelectItem>
-                <SelectItem value="unmatched">Unmatched</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Mapping List */}
+      {/* Statistics Dashboard */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
-          <CardHeader>
-            <CardTitle>Terminology Mappings</CardTitle>
-            <CardDescription>
-              {filteredMappings.length} mappings found
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {filteredMappings.map((mapping) => (
-              <Card 
-                key={mapping.namasteCode}
-                className={`cursor-pointer transition-all ${
-                  selectedMapping.namasteCode === mapping.namasteCode 
-                    ? 'ring-2 ring-primary shadow-md' 
-                    : 'hover:shadow-sm'
-                }`}
-                onClick={() => setSelectedMapping(mapping)}
-              >
-                <CardContent className="p-4">
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-medium">{mapping.namasteDisplay}</h4>
-                        <p className="text-sm text-muted-foreground">{mapping.namasteCode}</p>
-                      </div>
-                      <Badge 
-                        variant={mapping.namasteSystem === 'ayurveda' ? 'default' : 
-                                mapping.namasteSystem === 'siddha' ? 'secondary' : 'outline'}
-                        className="text-xs capitalize"
-                      >
-                        {mapping.namasteSystem}
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-primary">{stats.total}</div>
+            <div className="text-sm text-muted-foreground">Total Mappings</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">{stats.equivalent}</div>
+            <div className="text-sm text-muted-foreground">Equivalent</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-yellow-600">{stats.relatedto}</div>
+            <div className="text-sm text-muted-foreground">Related</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600">{stats.wider}</div>
+            <div className="text-sm text-muted-foreground">Wider/Narrower</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-red-600">{stats.unmatched}</div>
+            <div className="text-sm text-muted-foreground">Unmatched</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Filters and Legend */}
+        <div className="lg:col-span-1 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Filter by Equivalence</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs value={filterEquivalence} onValueChange={setFilterEquivalence}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="filter">Filter</TabsTrigger>
+                </TabsList>
+                <TabsContent value="all" className="mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing all {sampleMappings.length} mapping relationships
+                  </div>
+                </TabsContent>
+                <TabsContent value="filter" className="mt-4 space-y-2">
+                  {['equivalent', 'relatedto', 'wider', 'unmatched'].map(eq => (
+                    <Button
+                      key={eq}
+                      variant={filterEquivalence === eq ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setFilterEquivalence(eq)}
+                      className="w-full justify-start"
+                    >
+                      {getEquivalenceIcon(eq)}
+                      <span className="ml-2 capitalize">{eq.replace('to', ' to')}</span>
+                      <Badge variant="secondary" className="ml-auto">
+                        {sampleMappings.filter(m => m.equivalence === eq).length}
                       </Badge>
+                    </Button>
+                  ))}
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Mapping Legend</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span><strong>Equivalent:</strong> Same clinical meaning</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-yellow-600" />
+                <span><strong>Related:</strong> Clinically related concepts</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <ArrowRight className="h-4 w-4 text-blue-600" />
+                <span><strong>Wider/Narrower:</strong> Broader or more specific</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-red-600" />
+                <span><strong>Unmatched:</strong> No suitable mapping</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Mapping Details */}
+        <div className="lg:col-span-2">
+          {selectedMapping ? (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Mapping Details</CardTitle>
+                  <Button variant="outline" size="sm" onClick={() => setSelectedMapping(null)}>
+                    Back to List
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Source Term */}
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    {getSystemIcon(selectedMapping.system)}
+                    <Badge className="capitalize">{selectedMapping.system}</Badge>
+                    <Badge variant="outline" className="font-mono">{selectedMapping.namasteCode}</Badge>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">{selectedMapping.namasteTerm}</h3>
+                  <p className="text-lg text-muted-foreground">{selectedMapping.originalTerm}</p>
+                </div>
+
+                {/* Mapping Arrow */}
+                <div className="flex items-center justify-center gap-3">
+                  <ArrowRight className="h-8 w-8 text-muted-foreground" />
+                  <Badge className={`${getEquivalenceColor(selectedMapping.equivalence)} px-3 py-1`}>
+                    {getEquivalenceIcon(selectedMapping.equivalence)}
+                    <span className="ml-2 capitalize">{selectedMapping.equivalence.replace('to', ' to')}</span>
+                  </Badge>
+                </div>
+
+                {/* Target Term */}
+                <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                  {selectedMapping.icd11Code ? (
+                    <>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Globe className="h-4 w-4 text-primary" />
+                        <Badge variant="outline" className="font-mono">{selectedMapping.icd11Code}</Badge>
+                        <Badge>ICD-11 MMS</Badge>
+                      </div>
+                      <h3 className="text-xl font-semibold">{selectedMapping.icd11Term}</h3>
+                    </>
+                  ) : (
+                    <div className="text-center py-4">
+                      <XCircle className="h-12 w-12 text-red-500 mx-auto mb-2" />
+                      <h3 className="text-lg font-semibold text-red-600">No ICD-11 Mapping</h3>
+                      <p className="text-muted-foreground">This traditional medicine concept has no equivalent in ICD-11</p>
                     </div>
-                    
-                    <div className="flex items-center justify-center">
-                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+
+                {/* Mapping Metadata */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Mapping Type</label>
+                    <p className="capitalize font-medium">{selectedMapping.mappingType}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Confidence Score</label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-muted rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full transition-all"
+                          style={{ width: `${selectedMapping.confidence * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-medium">{(selectedMapping.confidence * 100).toFixed(0)}%</span>
                     </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-medium flex items-center gap-2">
-                            <Globe className="h-4 w-4" />
-                            {mapping.icd11Display}
-                          </h4>
-                          <p className="text-sm text-muted-foreground">{mapping.icd11Code}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Clinical Notes</label>
+                  <p className="mt-1 leading-relaxed">{selectedMapping.clinicalNotes}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">
+                  Mapping Relationships ({filteredMappings.length})
+                </h3>
+                {filterEquivalence !== 'all' && (
+                  <Button variant="outline" size="sm" onClick={() => setFilterEquivalence('all')}>
+                    Show All
+                  </Button>
+                )}
+              </div>
+
+              {filteredMappings.map((mapping) => (
+                <Card 
+                  key={mapping.namasteCode}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => setSelectedMapping(mapping)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          {getSystemIcon(mapping.system)}
+                          <Badge variant="outline" className="font-mono text-xs">{mapping.namasteCode}</Badge>
+                          <Badge className={`${getEquivalenceColor(mapping.equivalence)} text-xs`}>
+                            {getEquivalenceIcon(mapping.equivalence)}
+                            <span className="ml-1">{mapping.equivalence}</span>
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
+                          <div>
+                            <h4 className="font-medium">{mapping.namasteTerm}</h4>
+                            <p className="text-sm text-muted-foreground">{mapping.originalTerm}</p>
+                          </div>
+                          
+                          <div className="flex justify-center">
+                            <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                          
+                          <div>
+                            {mapping.icd11Code ? (
+                              <>
+                                <h4 className="font-medium">{mapping.icd11Term}</h4>
+                                <p className="text-sm text-muted-foreground font-mono">{mapping.icd11Code}</p>
+                              </>
+                            ) : (
+                              <p className="text-sm text-red-600 italic">No mapping available</p>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center justify-between">
-                        {getEquivalenceBadge(mapping.equivalence)}
-                        <Badge variant="outline" className="text-xs">
-                          {mapping.confidence} confidence
-                        </Badge>
-                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Detailed Mapping View */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Mapping Details</CardTitle>
-            <CardDescription>
-              Detailed analysis of the selected terminology mapping
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* NAMASTE Term */}
-            <div className="space-y-3">
-              <h3 className="font-semibold text-primary">Traditional Medicine Term</h3>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium">{selectedMapping.namasteDisplay}</h4>
-                      <Badge 
-                        variant={selectedMapping.namasteSystem === 'ayurveda' ? 'default' : 
-                                selectedMapping.namasteSystem === 'siddha' ? 'secondary' : 'outline'}
-                        className="capitalize"
-                      >
-                        {selectedMapping.namasteSystem}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">Code: {selectedMapping.namasteCode}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* ICD-11 Term */}
-            <div className="space-y-3">
-              <h3 className="font-semibold text-accent">ICD-11 International Standard</h3>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium flex items-center gap-2">
-                        <Globe className="h-4 w-4" />
-                        {selectedMapping.icd11Display}
-                      </h4>
-                    </div>
-                    <p className="text-sm text-muted-foreground">Code: {selectedMapping.icd11Code}</p>
-                    {selectedMapping.icd11Code.includes('&') && (
-                      <Badge variant="outline" className="text-xs">
-                        Post-coordinated (clustered) code
-                      </Badge>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Equivalence Analysis */}
-            <div className="space-y-3">
-              <h3 className="font-semibold">Equivalence Analysis</h3>
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">Relationship:</span>
-                      {getEquivalenceBadge(selectedMapping.equivalence)}
-                    </div>
-                    <p className="text-sm">
-                      {getEquivalenceDescription(selectedMapping.equivalence)}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">Confidence:</span>
-                      <Badge variant="outline">{selectedMapping.confidence}</Badge>
-                    </div>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            </div>
-
-            {/* Clinical Notes */}
-            {selectedMapping.notes && (
-              <div className="space-y-3">
-                <h3 className="font-semibold">Clinical Notes</h3>
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-sm leading-relaxed">{selectedMapping.notes}</p>
                   </CardContent>
                 </Card>
-              </div>
-            )}
-
-            {/* FHIR ConceptMap Preview */}
-            <div className="space-y-3">
-              <h3 className="font-semibold">FHIR ConceptMap Structure</h3>
-              <Card>
-                <CardContent className="p-4">
-                  <pre className="text-xs bg-muted p-3 rounded overflow-x-auto">
-{`{
-  "resourceType": "ConceptMap",
-  "source": "http://namstp.ayush.gov.in/fhir/CodeSystem/NAMASTE",
-  "target": "http://id.who.int/icd/release/11/mms",
-  "group": [{
-    "source": "${selectedMapping.namasteCode}",
-    "target": [{
-      "code": "${selectedMapping.icd11Code}",
-      "equivalence": "${selectedMapping.equivalence}"
-    }]
-  }]
-}`}
-                  </pre>
-                </CardContent>
-              </Card>
+              ))}
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </div>
       </div>
     </div>
   )

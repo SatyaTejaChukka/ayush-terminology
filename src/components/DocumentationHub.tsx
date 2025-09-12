@@ -1,164 +1,175 @@
-import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Separator } from '@/components/ui/separator'
-import { BookOpen, Code, Shield, Globe, Database, ArrowRight, CheckCircle, ExternalLink } from '@phosphor-icons/react'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { 
+  BookOpen, 
+  Globe, 
+  Code, 
+  Shield, 
+  Database, 
+  ArrowRight,
+  ExternalLink,
+  CheckCircle,
+  FileText,
+  Users,
+  Beaker
+} from '@phosphor-icons/react'
 
 export default function DocumentationHub() {
-  const [activeSection, setActiveSection] = useState('overview')
-
-  const apiEndpoints = [
+  const documentationSections = [
     {
-      method: 'GET',
-      path: '/lookup',
-      description: 'Auto-complete search for NAMASTE terminology',
-      params: ['q (string, required)', 'system (string, optional)', 'limit (integer, optional)']
+      id: 'overview',
+      title: 'System Overview',
+      icon: <Globe className="h-5 w-5" />,
+      description: 'Architecture and integration approach'
     },
     {
-      method: 'POST',
-      path: '/ConceptMap/$translate',
-      description: 'FHIR $translate operation for code mapping',
-      params: ['FHIR Parameters resource with system, code, and target']
+      id: 'fhir',
+      title: 'FHIR Implementation',
+      icon: <Code className="h-5 w-5" />,
+      description: 'R4 compliance and resource specifications'
     },
     {
-      method: 'POST',
-      path: '/Encounter',
-      description: 'Clinical encounter ingestion with dual-coding',
-      params: ['FHIR Bundle of type: transaction']
-    }
-  ]
-
-  const fhirResources = [
-    {
-      resource: 'CodeSystem',
-      purpose: 'Defines the complete NAMASTE terminology with hierarchical structure',
-      url: 'http://namstp.ayush.gov.in/fhir/CodeSystem/NAMASTE'
+      id: 'security',
+      title: 'Security & ABDM',
+      icon: <Shield className="h-5 w-5" />,
+      description: 'Authentication and authorization framework'
     },
     {
-      resource: 'ValueSet',
-      purpose: 'Creates usable subsets of NAMASTE codes for specific clinical contexts',
-      url: 'http://namstp.ayush.gov.in/fhir/ValueSet/*'
-    },
-    {
-      resource: 'ConceptMap',
-      purpose: 'Defines explicit mappings between NAMASTE and ICD-11 codes',
-      url: 'http://namstp.ayush.gov.in/fhir/ConceptMap/namaste-to-icd11-mms'
+      id: 'api',
+      title: 'API Reference',
+      icon: <Database className="h-5 w-5" />,
+      description: 'Endpoint specifications and examples'
     }
   ]
 
   return (
     <div className="space-y-6">
-      <Tabs value={activeSection} onValueChange={setActiveSection}>
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
+      {/* Quick Navigation */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {documentationSections.map((section) => (
+          <Card key={section.id} className="cursor-pointer hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3 mb-2">
+                {section.icon}
+                <h3 className="font-semibold">{section.title}</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">{section.description}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="fhir">FHIR R4</TabsTrigger>
-          <TabsTrigger value="api">API Spec</TabsTrigger>
+          <TabsTrigger value="fhir">FHIR</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="integration">Integration</TabsTrigger>
+          <TabsTrigger value="api">API</TabsTrigger>
         </TabsList>
 
+        {/* System Overview */}
         <TabsContent value="overview" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5" />
-                Architecture Overview
+                <Globe className="h-5 w-5" />
+                NAMASTE-ICD11 Integration Architecture
               </CardTitle>
               <CardDescription>
-                Comprehensive guide to the NAMASTE-ICD11 Terminology Service
+                A comprehensive framework for bridging traditional medicine and global health standards
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <h3 className="font-semibold mb-3">System Purpose</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  The NAMASTE Terminology Service enables seamless integration between India's traditional medicine 
-                  terminologies (Ayurveda, Siddha, Unani) and international health standards (WHO ICD-11). It provides 
-                  a dual-coding system that preserves clinical richness while ensuring global interoperability.
+            <CardContent className="space-y-4">
+              <div className="prose prose-sm max-w-none">
+                <h3>Strategic Vision</h3>
+                <p>
+                  The NAMASTE-ICD11 Terminology Service represents a critical convergence between India's rich 
+                  traditional medicine heritage (AYUSH systems) and modern global health informatics standards. 
+                  This integration enables dual coding workflows that preserve clinical authenticity while 
+                  ensuring international interoperability.
                 </p>
-              </div>
 
-              <Separator />
-
-              <div>
-                <h3 className="font-semibold mb-3">Key Features</h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium">FHIR R4 Compliance</p>
-                        <p className="text-xs text-muted-foreground">Full conformance to HL7 FHIR R4 specifications</p>
-                      </div>
+                <h3>Core Components</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 not-prose">
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <BookOpen className="h-4 w-4 text-traditional" />
+                      <strong>NAMASTE Portal</strong>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium">ABDM Integration</p>
-                        <p className="text-xs text-muted-foreground">OAuth 2.0 authentication with ABHA tokens</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium">Microservice Architecture</p>
-                        <p className="text-xs text-muted-foreground">Containerized, scalable service design</p>
-                      </div>
-                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      National standardized terminologies for Ayurveda, Siddha, and Unani systems
+                    </p>
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium">Dual Coding System</p>
-                        <p className="text-xs text-muted-foreground">Simultaneous traditional and international coding</p>
-                      </div>
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Globe className="h-4 w-4 text-primary" />
+                      <strong>ICD-11 TM2</strong>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium">Real-time Search</p>
-                        <p className="text-xs text-muted-foreground">Fast auto-complete for clinical workflows</p>
-                      </div>
+                    <p className="text-sm text-muted-foreground">
+                      WHO Traditional Medicine Module 2 with 529 diagnostic categories
+                    </p>
+                  </div>
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Code className="h-4 w-4 text-accent" />
+                      <strong>FHIR Service</strong>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium">WHO Collaboration</p>
-                        <p className="text-xs text-muted-foreground">Built on official ICD-11 TM2 module</p>
-                      </div>
-                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      R4-compliant microservice enabling seamless terminology translation
+                    </p>
+                  </div>
+                </div>
+
+                <h3>Key Benefits</h3>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                    <span><strong>Clinical Continuity:</strong> Practitioners continue using familiar terminologies</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                    <span><strong>Global Interoperability:</strong> Records comply with international standards</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                    <span><strong>Research Enablement:</strong> Unified datasets for comparative effectiveness studies</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                    <span><strong>Insurance Integration:</strong> Clear pathway for reimbursement and coverage</span>
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <Separator />
-
-              <div>
-                <h3 className="font-semibold mb-3">Stakeholder Benefits</h3>
-                <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Implementation Roadmap</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center font-semibold">1</div>
                   <div>
-                    <h4 className="font-medium text-sm">Healthcare Practitioners</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Continue using familiar traditional medicine terminologies while automatically generating 
-                      internationally recognized diagnostic codes for comprehensive patient records.
-                    </p>
+                    <h4 className="font-medium">Core Terminology Engine</h4>
+                    <p className="text-sm text-muted-foreground">Database schema, FHIR resource providers, data ingestion</p>
                   </div>
+                </div>
+                <div className="flex items-center gap-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">2</div>
                   <div>
-                    <h4 className="font-medium text-sm">Researchers & Policymakers</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Access unified datasets enabling comparative effectiveness studies, morbidity analysis, 
-                      and evidence-based health policy development across medical paradigms.
-                    </p>
+                    <h4 className="font-medium">API Endpoints & Operations</h4>
+                    <p className="text-sm text-muted-foreground">Search, translate, and encounter ingestion endpoints</p>
                   </div>
+                </div>
+                <div className="flex items-center gap-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="w-8 h-8 bg-orange-600 text-white rounded-full flex items-center justify-center font-semibold">3</div>
                   <div>
-                    <h4 className="font-medium text-sm">Insurers & Payers</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Process claims and create coverage packages using standardized, globally recognized 
-                      codes that align with modern healthcare administrative frameworks.
-                    </p>
+                    <h4 className="font-medium">Security & EMR Integration</h4>
+                    <p className="text-sm text-muted-foreground">ABHA authentication, end-to-end testing with partner EMRs</p>
                   </div>
                 </div>
               </div>
@@ -166,54 +177,101 @@ export default function DocumentationHub() {
           </Card>
         </TabsContent>
 
+        {/* FHIR Implementation */}
         <TabsContent value="fhir" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Code className="h-5 w-5" />
-                FHIR R4 Resource Specifications
+                FHIR R4 Resource Implementation
               </CardTitle>
               <CardDescription>
-                Detailed FHIR resource structures and compliance requirements
+                Standards-compliant terminology representation and mapping
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <Alert>
-                <Globe className="h-4 w-4" />
-                <AlertDescription>
-                  All FHIR resources conform to HL7 FHIR R4 specification and India's NRCeS profiles for ABDM compliance.
-                </AlertDescription>
-              </Alert>
-
-              <div className="space-y-4">
-                {fhirResources.map((resource, index) => (
-                  <Card key={index}>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">{resource.resource}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <p className="text-sm text-muted-foreground">{resource.purpose}</p>
-                      <div className="bg-muted p-3 rounded">
-                        <p className="text-xs font-mono">{resource.url}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-semibold mb-2">CodeSystem</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Complete NAMASTE terminology catalog with 2,888+ concepts
+                  </p>
+                  <Badge variant="outline" className="text-xs">Resource</Badge>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-semibold mb-2">ConceptMap</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Bidirectional mappings between NAMASTE and ICD-11 codes
+                  </p>
+                  <Badge variant="outline" className="text-xs">Resource</Badge>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-semibold mb-2">ValueSet</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    System-specific subsets for clinical workflows
+                  </p>
+                  <Badge variant="outline" className="text-xs">Resource</Badge>
+                </div>
               </div>
 
-              <Separator />
+              <div className="space-y-4">
+                <h3 className="font-semibold">Key FHIR Operations</h3>
+                <div className="space-y-3">
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <code className="font-mono text-sm">POST /ConceptMap/$translate</code>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Standard FHIR terminology translation operation
+                    </p>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <code className="font-mono text-sm">GET /CodeSystem/NAMASTE</code>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Retrieve complete terminology definitions
+                    </p>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <code className="font-mono text-sm">POST /Encounter</code>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Dual-coding workflow for clinical encounters
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-              <div>
-                <h3 className="font-semibold mb-3">CodeSystem Structure Example</h3>
-                <Card>
-                  <CardContent className="p-4">
-                    <pre className="text-xs bg-muted p-3 rounded overflow-x-auto">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="font-semibold text-blue-800 mb-2">Equivalence Relationships</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><code>equivalent</code> - Same clinical meaning</div>
+                  <div><code>relatedto</code> - Clinically related concepts</div>
+                  <div><code>wider</code> - Source broader than target</div>
+                  <div><code>narrower</code> - Source more specific than target</div>
+                  <div><code>unmatched</code> - No suitable mapping</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Sample FHIR Resources</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="codesystem" className="w-full">
+                <TabsList>
+                  <TabsTrigger value="codesystem">CodeSystem</TabsTrigger>
+                  <TabsTrigger value="conceptmap">ConceptMap</TabsTrigger>
+                  <TabsTrigger value="bundle">Bundle</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="codesystem">
+                  <div className="bg-muted p-4 rounded-lg">
+                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
 {`{
   "resourceType": "CodeSystem",
   "url": "http://namstp.ayush.gov.in/fhir/CodeSystem/NAMASTE",
   "version": "1.0.0",
   "name": "NAMASTETerminology",
-  "title": "National AYUSH Morbidity and Standardized Terminologies",
+  "title": "NAMASTE Traditional Medicine Codes",
   "status": "active",
   "publisher": "Ministry of AYUSH, Government of India",
   "content": "complete",
@@ -221,11 +279,14 @@ export default function DocumentationHub() {
     {
       "code": "AAE-16",
       "display": "Sandhigatavata",
-      "definition": "Vata disorder affecting joints...",
+      "definition": "Osteoarthritis - degenerative joint disease",
       "designation": [
         {
           "language": "sa",
-          "use": { "code": "original-term" },
+          "use": {
+            "system": "http://terminology.hl7.org/CodeSystem/designation-usage",
+            "code": "900000000000013009"
+          },
           "value": "सन्धिगतवात"
         }
       ],
@@ -239,18 +300,15 @@ export default function DocumentationHub() {
   ]
 }`}
                     </pre>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-3">ConceptMap Structure Example</h3>
-                <Card>
-                  <CardContent className="p-4">
-                    <pre className="text-xs bg-muted p-3 rounded overflow-x-auto">
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="conceptmap">
+                  <div className="bg-muted p-4 rounded-lg">
+                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
 {`{
   "resourceType": "ConceptMap",
-  "url": "http://namstp.ayush.gov.in/fhir/ConceptMap/namaste-to-icd11-mms",
+  "url": "http://namstp.ayush.gov.in/fhir/ConceptMap/namaste-to-icd11",
   "sourceCanonical": "http://namstp.ayush.gov.in/fhir/CodeSystem/NAMASTE",
   "targetCanonical": "http://id.who.int/icd/release/11/mms",
   "group": [
@@ -273,198 +331,132 @@ export default function DocumentationHub() {
   ]
 }`}
                     </pre>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="bundle">
+                  <div className="bg-muted p-4 rounded-lg">
+                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+{`{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "subject": { "reference": "Patient/123" },
+        "code": {
+          "coding": [
+            {
+              "system": "http://namstp.ayush.gov.in/fhir/CodeSystem/NAMASTE",
+              "code": "AAE-16",
+              "display": "Sandhigatavata"
+            },
+            {
+              "system": "http://id.who.int/icd/release/11/mms",
+              "code": "FA20",
+              "display": "Osteoarthritis"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}`}
+                    </pre>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="api" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                RESTful API Specification
-              </CardTitle>
-              <CardDescription>
-                Complete API endpoint documentation with request/response examples
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <Alert>
-                <CheckCircle className="h-4 w-4" />
-                <AlertDescription>
-                  All endpoints require valid ABHA authentication tokens and return JSON responses.
-                </AlertDescription>
-              </Alert>
-
-              <div className="space-y-4">
-                {apiEndpoints.map((endpoint, index) => (
-                  <Card key={index}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={endpoint.method === 'GET' ? 'secondary' : 'default'}>
-                          {endpoint.method}
-                        </Badge>
-                        <code className="text-sm">{endpoint.path}</code>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <p className="text-sm text-muted-foreground">{endpoint.description}</p>
-                      <div>
-                        <h4 className="font-medium text-sm mb-2">Parameters</h4>
-                        <ul className="text-xs text-muted-foreground space-y-1">
-                          {endpoint.params.map((param, i) => (
-                            <li key={i} className="flex items-center gap-2">
-                              <ArrowRight className="h-3 w-3" />
-                              {param}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <Separator />
-
-              <div>
-                <h3 className="font-semibold mb-3">Response Codes</h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Badge variant="secondary">200 OK</Badge>
-                    <p className="text-xs text-muted-foreground">Successful request with response data</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Badge variant="destructive">400 Bad Request</Badge>
-                    <p className="text-xs text-muted-foreground">Invalid request parameters or format</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Badge variant="destructive">401 Unauthorized</Badge>
-                    <p className="text-xs text-muted-foreground">Missing or invalid ABHA token</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Badge variant="outline">404 Not Found</Badge>
-                    <p className="text-xs text-muted-foreground">Requested resource or mapping not found</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
+        {/* Security & ABDM */}
         <TabsContent value="security" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                Security & Authentication
+                ABDM-Integrated Security Framework
               </CardTitle>
               <CardDescription>
-                ABDM-integrated OAuth 2.0 security framework and compliance requirements
+                OAuth 2.0 authentication with Ayushman Bharat Digital Mission
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <Alert>
-                <Shield className="h-4 w-4" />
-                <AlertDescription>
-                  All API access requires valid ABHA (Ayushman Bharat Health Account) authentication tokens 
-                  issued by the ABDM identity service.
-                </AlertDescription>
-              </Alert>
-
-              <div>
-                <h3 className="font-semibold mb-3">Authentication Flow</h3>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">1</div>
-                    <div>
-                      <p className="text-sm font-medium">Token Acquisition</p>
-                      <p className="text-xs text-muted-foreground">
-                        EMR system authenticates clinician against ABDM identity service and receives JWT token
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">2</div>
-                    <div>
-                      <p className="text-sm font-medium">API Request</p>
-                      <p className="text-xs text-muted-foreground">
-                        EMR includes ABHA token in Authorization header using Bearer scheme
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">3</div>
-                    <div>
-                      <p className="text-sm font-medium">Token Validation</p>
-                      <p className="text-xs text-muted-foreground">
-                        Service verifies JWT signature, expiration, issuer, and audience claims
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">4</div>
-                    <div>
-                      <p className="text-sm font-medium">Scope Enforcement</p>
-                      <p className="text-xs text-muted-foreground">
-                        Service checks token scopes and enforces appropriate access permissions
-                      </p>
-                    </div>
-                  </div>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <h4 className="font-semibold text-green-800 mb-2">Authentication</h4>
+                  <ul className="text-sm space-y-1">
+                    <li>• ABHA token validation</li>
+                    <li>• JWT signature verification</li>
+                    <li>• Claims-based authorization</li>
+                    <li>• Session management</li>
+                  </ul>
+                </div>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h4 className="font-semibold text-blue-800 mb-2">Authorization</h4>
+                  <ul className="text-sm space-y-1">
+                    <li>• Scope-based access control</li>
+                    <li>• Resource-level permissions</li>
+                    <li>• Consent framework compliance</li>
+                    <li>• Audit trail maintenance</li>
+                  </ul>
                 </div>
               </div>
 
-              <Separator />
-
-              <div>
-                <h3 className="font-semibold mb-3">Required Scopes</h3>
+              <div className="space-y-4">
+                <h3 className="font-semibold">Security Flow</h3>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">terminology:read</Badge>
-                    <p className="text-sm text-muted-foreground">Access to lookup and search operations</p>
+                  <div className="flex items-center gap-4 p-3 border rounded-lg">
+                    <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm">1</div>
+                    <div>
+                      <h4 className="font-medium">EMR Authentication</h4>
+                      <p className="text-sm text-muted-foreground">Client authenticates with ABDM, receives ABHA token</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">encounter:write</Badge>
-                    <p className="text-sm text-muted-foreground">Permission to submit clinical encounter data</p>
+                  <div className="flex items-center gap-4 p-3 border rounded-lg">
+                    <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm">2</div>
+                    <div>
+                      <h4 className="font-medium">API Request</h4>
+                      <p className="text-sm text-muted-foreground">EMR includes Bearer token in Authorization header</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">conceptmap:read</Badge>
-                    <p className="text-sm text-muted-foreground">Access to terminology translation operations</p>
+                  <div className="flex items-center gap-4 p-3 border rounded-lg">
+                    <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm">3</div>
+                    <div>
+                      <h4 className="font-medium">Token Validation</h4>
+                      <p className="text-sm text-muted-foreground">Service verifies signature, claims, and scopes</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 p-3 border rounded-lg">
+                    <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm">4</div>
+                    <div>
+                      <h4 className="font-medium">Authorized Response</h4>
+                      <p className="text-sm text-muted-foreground">Service processes request and returns data</p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <Separator />
-
-              <div>
-                <h3 className="font-semibold mb-3">Compliance Standards</h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">EHR Standards for India (2016)</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Compliance with national EHR standards including ISO 22600 for privilege management
-                    </p>
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <h4 className="font-semibold text-orange-800 mb-2">Compliance Requirements</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span>EHR Standards for India (2016)</span>
                   </div>
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">FHIR R4 Security</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Implementation of FHIR security recommendations and smart-on-fhir specifications
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span>NRCeS FHIR Profiles for ABDM</span>
                   </div>
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">Patient Consent</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Integration with ABDM Consent Manager for patient data protection
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span>ISO 22600 Privilege Management</span>
                   </div>
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">Data Encryption</h4>
-                    <p className="text-xs text-muted-foreground">
-                      TLS 1.2+ for data in transit and AES-256 for data at rest
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span>GDPR-aligned Data Protection</span>
                   </div>
                 </div>
               </div>
@@ -472,138 +464,151 @@ export default function DocumentationHub() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="integration" className="space-y-6">
+        {/* API Reference */}
+        <TabsContent value="api" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <ExternalLink className="h-5 w-5" />
-                Integration Guidelines
+                <Database className="h-5 w-5" />
+                API Endpoint Reference
               </CardTitle>
               <CardDescription>
-                Step-by-step integration guide for EMR systems and healthcare platforms
+                Complete specification for terminology service integration
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div>
-                <h3 className="font-semibold mb-3">Prerequisites</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <p className="text-sm">ABDM registered healthcare application</p>
+              <div className="space-y-4">
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold">Terminology Lookup</h4>
+                    <Badge variant="outline">GET</Badge>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <p className="text-sm">FHIR R4 compatible EMR system</p>
+                  <code className="text-sm bg-muted p-2 rounded block mb-2">/lookup?q={searchTerm}&system={ayurveda|siddha|unani}</code>
+                  <p className="text-sm text-muted-foreground">Real-time search for NAMASTE concepts with auto-completion support</p>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold">Code Translation</h4>
+                    <Badge variant="outline">POST</Badge>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <p className="text-sm">OAuth 2.0 client credentials or authorization code flow</p>
+                  <code className="text-sm bg-muted p-2 rounded block mb-2">/ConceptMap/$translate</code>
+                  <p className="text-sm text-muted-foreground">Standard FHIR operation for mapping NAMASTE codes to ICD-11</p>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold">Encounter Ingestion</h4>
+                    <Badge variant="outline">POST</Badge>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <p className="text-sm">HTTPS endpoint capability for secure communication</p>
+                  <code className="text-sm bg-muted p-2 rounded block mb-2">/Encounter</code>
+                  <p className="text-sm text-muted-foreground">Submit clinical encounters for dual-coding and persistence</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="font-semibold">Response Formats</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <h4 className="font-medium mb-2">Success (200)</h4>
+                    <code className="text-xs">
+                      {`{
+  "resourceType": "Parameters",
+  "parameter": [...]
+}`}
+                    </code>
+                  </div>
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <h4 className="font-medium mb-2">Error (4xx/5xx)</h4>
+                    <code className="text-xs">
+                      {`{
+  "resourceType": "OperationOutcome",
+  "issue": [...]
+}`}
+                    </code>
                   </div>
                 </div>
               </div>
 
-              <Separator />
-
-              <div>
-                <h3 className="font-semibold mb-3">Integration Steps</h3>
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">Phase 1: Authentication Setup</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
-                        Configure OAuth 2.0 client credentials with ABDM and implement token management
-                      </p>
-                      <div className="text-xs space-y-1">
-                        <p>• Register application with ABDM identity service</p>
-                        <p>• Implement JWT token validation and caching</p>
-                        <p>• Configure required scopes for terminology access</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">Phase 2: Terminology Integration</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
-                        Integrate auto-complete search and terminology lookup in clinical workflows
-                      </p>
-                      <div className="text-xs space-y-1">
-                        <p>• Implement real-time search UI components</p>
-                        <p>• Connect to /lookup endpoint for NAMASTE terms</p>
-                        <p>• Display traditional medicine diagnosis options</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">Phase 3: Dual-Coding Implementation</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
-                        Enable automatic ICD-11 mapping and dual-coded record generation
-                      </p>
-                      <div className="text-xs space-y-1">
-                        <p>• Integrate $translate operation for code mapping</p>
-                        <p>• Modify condition recording to include both codes</p>
-                        <p>• Implement FHIR Bundle structure for encounters</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">Phase 4: Data Submission</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
-                        Configure clinical encounter data submission with dual-coded diagnoses
-                      </p>
-                      <div className="text-xs space-y-1">
-                        <p>• Implement FHIR Bundle creation for encounters</p>
-                        <p>• Connect to /Encounter endpoint for data submission</p>
-                        <p>• Handle response processing and error scenarios</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h3 className="font-semibold mb-3">Testing & Validation</h3>
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="font-medium text-sm">Sandbox Environment</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Use ABDM sandbox for initial testing and validation before production deployment
-                    </p>
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="font-semibold text-blue-800 mb-2">Integration Checklist</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span>Obtain ABDM registration and client credentials</span>
                   </div>
-                  <div>
-                    <h4 className="font-medium text-sm">FHIR Validation</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Validate all FHIR resources against NRCeS profiles using official validation tools
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span>Implement OAuth 2.0 token acquisition flow</span>
                   </div>
-                  <div>
-                    <h4 className="font-medium text-sm">End-to-End Testing</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Test complete clinical workflows from search to dual-coded record submission
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span>Configure FHIR R4 Bundle validation</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span>Test dual-coding workflow end-to-end</span>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Additional Resources
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between p-2 border rounded">
+                  <span className="text-sm">FHIR R4 Specification</span>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex items-center justify-between p-2 border rounded">
+                  <span className="text-sm">ICD-11 TM2 Documentation</span>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex items-center justify-between p-2 border rounded">
+                  <span className="text-sm">ABDM Developer Portal</span>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex items-center justify-between p-2 border rounded">
+                  <span className="text-sm">NAMASTE Portal</span>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Support & Community
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between p-2 border rounded">
+                  <span className="text-sm">Technical Documentation</span>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex items-center justify-between p-2 border rounded">
+                  <span className="text-sm">Developer Forum</span>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex items-center justify-between p-2 border rounded">
+                  <span className="text-sm">Integration Support</span>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex items-center justify-between p-2 border rounded">
+                  <span className="text-sm">Issue Tracking</span>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -3,125 +3,140 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Separator } from '@/components/ui/separator'
-import { CheckCircle, User, Calendar, Stethoscope, ArrowRight, FileText, Globe } from '@phosphor-icons/react'
-import { useKV } from '@github/spark/hooks'
+import { 
+  UserCircle, 
+  CalendarDots, 
+  MagnifyingGlass, 
+  CheckCircle, 
+  ArrowRight, 
+  Download,
+  Stethoscope,
+  Globe,
+  FileText
+} from '@phosphor-icons/react'
 
-interface ClinicalEncounter {
-  patientId: string
-  patientName: string
-  encounterDate: string
-  chiefComplaint: string
-  symptoms: string[]
-  selectedSystem: 'ayurveda' | 'siddha' | 'unani'
-  namasteCode: string
-  namasteDisplay: string
-  icd11Code: string
-  icd11Display: string
-  practitionerNotes: string
+// Sample patient and clinical data
+const samplePatient = {
+  id: 'ABHA-123456789',
+  name: 'Rajesh Kumar',
+  age: 45,
+  gender: 'Male',
+  contact: '+91-9876543210'
 }
 
-const symptomSuggestions = [
-  'Joint pain and stiffness',
-  'Morning stiffness',
-  'Swelling in joints',
-  'Reduced range of motion',
-  'Fever with burning sensation',
-  'Fatigue and weakness',
-  'Digestive issues',
-  'Sleep disturbances'
+const sampleTerminologies = [
+  { code: 'AAE-16', term: 'Sandhigatavata', system: 'ayurveda', definition: 'Osteoarthritis' },
+  { code: 'AST-23', term: 'Amlapitta', system: 'ayurveda', definition: 'Hyperacidity' },
+  { code: 'SUC-45', term: 'Vatha Soolai', system: 'siddha', definition: 'Rheumatoid arthritis' },
+  { code: 'UNI-12', term: 'Waja al-Mafasil', system: 'unani', definition: 'Joint pain syndrome' },
+  { code: 'AYU-78', term: 'Kasa', system: 'ayurveda', definition: 'Cough' }
 ]
-
-const namasteOptions = {
-  ayurveda: [
-    { code: 'AAE-16', display: 'Sandhigatavata', icd11: { code: 'FA20', display: 'Osteoarthritis' }},
-    { code: 'AAE-23', display: 'Amavata', icd11: { code: 'FA20.0', display: 'Rheumatoid arthritis' }},
-    { code: 'ASE-42', display: 'Pittajanya Jwara', icd11: { code: 'MG26', display: 'Fever, unspecified' }}
-  ],
-  siddha: [
-    { code: 'SSE-15', display: 'Keel Vayu', icd11: { code: 'FA20&XK9L', display: 'Osteoarthritis with joint effusion' }},
-    { code: 'SSE-28', display: 'Suram', icd11: { code: 'MG26', display: 'Fever, unspecified' }}
-  ],
-  unani: [
-    { code: 'USE-11', display: 'Waja ul Mafasil', icd11: { code: 'FA20', display: 'Osteoarthritis' }},
-    { code: 'USE-33', display: 'Hummah', icd11: { code: 'MG26', display: 'Fever, unspecified' }}
-  ]
-}
 
 export default function ClinicalDemo() {
   const [currentStep, setCurrentStep] = useState(1)
-  const [encounter, setEncounter] = useState<Partial<ClinicalEncounter>>({
-    encounterDate: new Date().toISOString().split('T')[0]
-  })
-  const [completedEncounters, setCompletedEncounters] = useKV<ClinicalEncounter[]>('demo-encounters', [])
+  const [selectedDiagnosis, setSelectedDiagnosis] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [clinicalNotes, setClinicalNotes] = useState('')
+  const [dualCodedRecord, setDualCodedRecord] = useState<any>(null)
+
+  const filteredTerminologies = sampleTerminologies.filter(term =>
+    term.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    term.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    term.definition.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const handleDiagnosisSelect = (diagnosis: typeof sampleTerminologies[0]) => {
+    setSelectedDiagnosis(diagnosis.code)
+    setSearchTerm(diagnosis.term)
+  }
+
+  const handleSubmitEncounter = () => {
+    const selectedTerm = sampleTerminologies.find(t => t.code === selectedDiagnosis)
+    if (!selectedTerm) return
+
+    // Simulate dual coding process
+    const mappings: { [key: string]: { icd11Code: string; icd11Term: string; equivalence: string } } = {
+      'AAE-16': { icd11Code: 'FA20', icd11Term: 'Osteoarthritis', equivalence: 'equivalent' },
+      'AST-23': { icd11Code: 'DA60', icd11Term: 'Gastro-oesophageal reflux disease', equivalence: 'relatedto' },
+      'SUC-45': { icd11Code: 'FA20.0&XK8G', icd11Term: 'Rheumatoid arthritis of multiple sites', equivalence: 'wider' },
+      'UNI-12': { icd11Code: 'MG30', icd11Term: 'Joint pain', equivalence: 'equivalent' },
+      'AYU-78': { icd11Code: 'MD12', icd11Term: 'Cough', equivalence: 'equivalent' }
+    }
+
+    const mapping = mappings[selectedDiagnosis]
+    
+    const record = {
+      resourceType: 'Bundle',
+      type: 'transaction',
+      timestamp: new Date().toISOString(),
+      entry: [
+        {
+          resource: {
+            resourceType: 'Patient',
+            id: samplePatient.id,
+            name: [{ text: samplePatient.name }],
+            gender: samplePatient.gender.toLowerCase(),
+            birthDate: '1979-03-15'
+          }
+        },
+        {
+          resource: {
+            resourceType: 'Encounter',
+            id: `encounter-${Date.now()}`,
+            status: 'finished',
+            class: { code: 'AMB', display: 'ambulatory' },
+            subject: { reference: `Patient/${samplePatient.id}` },
+            period: {
+              start: new Date().toISOString(),
+              end: new Date().toISOString()
+            }
+          }
+        },
+        {
+          resource: {
+            resourceType: 'Condition',
+            id: `condition-${Date.now()}`,
+            subject: { reference: `Patient/${samplePatient.id}` },
+            code: {
+              coding: [
+                {
+                  system: 'http://namstp.ayush.gov.in/fhir/CodeSystem/NAMASTE',
+                  code: selectedTerm.code,
+                  display: selectedTerm.term
+                },
+                ...(mapping ? [{
+                  system: 'http://id.who.int/icd/release/11/mms',
+                  code: mapping.icd11Code,
+                  display: mapping.icd11Term
+                }] : [])
+              ]
+            },
+            clinicalStatus: {
+              coding: [{
+                system: 'http://terminology.hl7.org/CodeSystem/condition-clinical',
+                code: 'active'
+              }]
+            },
+            note: clinicalNotes ? [{ text: clinicalNotes }] : []
+          }
+        }
+      ]
+    }
+
+    setDualCodedRecord(record)
+    setCurrentStep(4)
+  }
 
   const steps = [
-    { number: 1, title: 'Patient Information', icon: User },
-    { number: 2, title: 'Clinical Assessment', icon: Stethoscope },
-    { number: 3, title: 'Traditional Diagnosis', icon: FileText },
-    { number: 4, title: 'Dual-Coded Record', icon: CheckCircle }
+    { number: 1, title: 'Patient Info', description: 'Review patient details' },
+    { number: 2, title: 'Diagnosis', description: 'Select traditional medicine diagnosis' },
+    { number: 3, title: 'Clinical Notes', description: 'Add encounter details' },
+    { number: 4, title: 'Dual Coding', description: 'View final coded record' }
   ]
-
-  const handleSymptomToggle = (symptom: string) => {
-    setEncounter(prev => ({
-      ...prev,
-      symptoms: prev.symptoms?.includes(symptom) 
-        ? prev.symptoms.filter(s => s !== symptom)
-        : [...(prev.symptoms || []), symptom]
-    }))
-  }
-
-  const handleDiagnosisSelect = (code: string) => {
-    const system = encounter.selectedSystem!
-    const diagnosis = namasteOptions[system].find(d => d.code === code)
-    if (diagnosis) {
-      setEncounter(prev => ({
-        ...prev,
-        namasteCode: diagnosis.code,
-        namasteDisplay: diagnosis.display,
-        icd11Code: diagnosis.icd11.code,
-        icd11Display: diagnosis.icd11.display
-      }))
-    }
-  }
-
-  const completeEncounter = () => {
-    if (encounter.patientId && encounter.namasteCode) {
-      const newEncounter: ClinicalEncounter = {
-        patientId: encounter.patientId!,
-        patientName: encounter.patientName!,
-        encounterDate: encounter.encounterDate!,
-        chiefComplaint: encounter.chiefComplaint!,
-        symptoms: encounter.symptoms || [],
-        selectedSystem: encounter.selectedSystem!,
-        namasteCode: encounter.namasteCode!,
-        namasteDisplay: encounter.namasteDisplay!,
-        icd11Code: encounter.icd11Code!,
-        icd11Display: encounter.icd11Display!,
-        practitionerNotes: encounter.practitionerNotes || ''
-      }
-      
-      setCompletedEncounters(prev => [newEncounter, ...prev.slice(0, 4)])
-      
-      // Reset for new encounter
-      setEncounter({ encounterDate: new Date().toISOString().split('T')[0] })
-      setCurrentStep(1)
-    }
-  }
-
-  const canProceed = (step: number) => {
-    switch (step) {
-      case 1: return encounter.patientId && encounter.patientName
-      case 2: return encounter.chiefComplaint && encounter.symptoms?.length
-      case 3: return encounter.selectedSystem && encounter.namasteCode
-      case 4: return true
-      default: return false
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -129,427 +144,351 @@ export default function ClinicalDemo() {
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
-            {steps.map((step, index) => {
-              const Icon = step.icon
-              const isActive = currentStep === step.number
-              const isCompleted = currentStep > step.number
-              
-              return (
-                <div key={step.number} className="flex items-center">
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
-                    isCompleted ? 'bg-primary border-primary text-primary-foreground' :
-                    isActive ? 'border-primary text-primary' :
-                    'border-muted text-muted-foreground'
-                  }`}>
-                    {isCompleted ? (
-                      <CheckCircle className="h-5 w-5" />
-                    ) : (
-                      <Icon className="h-5 w-5" />
-                    )}
-                  </div>
-                  <div className="ml-3 hidden sm:block">
-                    <p className={`text-sm font-medium ${
-                      isActive ? 'text-primary' : 
-                      isCompleted ? 'text-foreground' : 'text-muted-foreground'
-                    }`}>
-                      {step.title}
-                    </p>
-                  </div>
-                  {index < steps.length - 1 && (
-                    <div className={`w-16 h-0.5 mx-4 ${
-                      currentStep > step.number ? 'bg-primary' : 'bg-muted'
-                    }`} />
+            {steps.map((step, index) => (
+              <div key={step.number} className="flex items-center">
+                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 font-semibold ${
+                  currentStep >= step.number 
+                    ? 'bg-primary text-primary-foreground border-primary' 
+                    : 'bg-background text-muted-foreground border-muted'
+                }`}>
+                  {currentStep > step.number ? (
+                    <CheckCircle className="h-5 w-5" />
+                  ) : (
+                    step.number
                   )}
                 </div>
-              )
-            })}
+                {index < steps.length - 1 && (
+                  <div className={`h-0.5 w-16 lg:w-24 mx-2 ${
+                    currentStep > step.number ? 'bg-primary' : 'bg-muted'
+                  }`} />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between mt-4">
+            {steps.map((step) => (
+              <div key={step.number} className="text-center">
+                <div className="font-medium text-sm">{step.title}</div>
+                <div className="text-xs text-muted-foreground">{step.description}</div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
 
       {/* Step Content */}
-      {currentStep === 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Patient Information
-            </CardTitle>
-            <CardDescription>
-              Enter basic patient details for this clinical encounter
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="patientId">Patient ID</Label>
-                <Input
-                  id="patientId"
-                  placeholder="e.g., PAT-2024-001"
-                  value={encounter.patientId || ''}
-                  onChange={(e) => setEncounter(prev => ({ ...prev, patientId: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="patientName">Patient Name</Label>
-                <Input
-                  id="patientName"
-                  placeholder="e.g., Rajesh Kumar"
-                  value={encounter.patientName || ''}
-                  onChange={(e) => setEncounter(prev => ({ ...prev, patientName: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="encounterDate">Encounter Date</Label>
-              <Input
-                id="encounterDate"
-                type="date"
-                value={encounter.encounterDate || ''}
-                onChange={(e) => setEncounter(prev => ({ ...prev, encounterDate: e.target.value }))}
-              />
-            </div>
-            <div className="flex justify-end">
-              <Button 
-                onClick={() => setCurrentStep(2)} 
-                disabled={!canProceed(1)}
-              >
-                Next: Clinical Assessment
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {currentStep === 2 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Stethoscope className="h-5 w-5" />
-              Clinical Assessment
-            </CardTitle>
-            <CardDescription>
-              Document the patient's chief complaint and symptoms
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="chiefComplaint">Chief Complaint</Label>
-              <Input
-                id="chiefComplaint"
-                placeholder="e.g., Joint pain and stiffness for 3 months"
-                value={encounter.chiefComplaint || ''}
-                onChange={(e) => setEncounter(prev => ({ ...prev, chiefComplaint: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Associated Symptoms</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {symptomSuggestions.map((symptom) => (
-                  <Button
-                    key={symptom}
-                    variant={encounter.symptoms?.includes(symptom) ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => handleSymptomToggle(symptom)}
-                    className="justify-start text-left h-auto py-2"
-                  >
-                    {symptom}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          {currentStep === 1 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCircle className="h-5 w-5" />
+                  Patient Information
+                </CardTitle>
+                <CardDescription>
+                  Review patient details before proceeding with diagnosis
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>ABHA ID</Label>
+                    <Input value={samplePatient.id} disabled />
+                  </div>
+                  <div>
+                    <Label>Patient Name</Label>
+                    <Input value={samplePatient.name} disabled />
+                  </div>
+                  <div>
+                    <Label>Age</Label>
+                    <Input value={`${samplePatient.age} years`} disabled />
+                  </div>
+                  <div>
+                    <Label>Gender</Label>
+                    <Input value={samplePatient.gender} disabled />
+                  </div>
+                  <div>
+                    <Label>Contact</Label>
+                    <Input value={samplePatient.contact} disabled />
+                  </div>
+                  <div>
+                    <Label>Visit Date</Label>
+                    <Input value={new Date().toLocaleDateString()} disabled />
+                  </div>
+                </div>
+                <div className="flex justify-end pt-4">
+                  <Button onClick={() => setCurrentStep(2)}>
+                    Continue to Diagnosis
+                    <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
-                ))}
-              </div>
-              {encounter.symptoms && encounter.symptoms.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {encounter.symptoms.map((symptom) => (
-                    <Badge key={symptom} variant="secondary" className="text-xs">
-                      {symptom}
-                    </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {currentStep === 2 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Stethoscope className="h-5 w-5" />
+                  Traditional Medicine Diagnosis
+                </CardTitle>
+                <CardDescription>
+                  Search and select the appropriate NAMASTE diagnostic code
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Search Diagnosis</Label>
+                  <div className="relative">
+                    <MagnifyingGlass className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by term, code, or definition..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {filteredTerminologies.map((term) => (
+                    <div 
+                      key={term.code}
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedDiagnosis === term.code 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-muted hover:border-muted-foreground'
+                      }`}
+                      onClick={() => handleDiagnosisSelect(term)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="font-mono text-xs">{term.code}</Badge>
+                            <Badge className="capitalize">{term.system}</Badge>
+                          </div>
+                          <h4 className="font-medium mt-1">{term.term}</h4>
+                          <p className="text-sm text-muted-foreground">{term.definition}</p>
+                        </div>
+                        {selectedDiagnosis === term.code && (
+                          <CheckCircle className="h-5 w-5 text-primary" />
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
-              )}
-            </div>
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setCurrentStep(1)}>
-                Back
-              </Button>
-              <Button 
-                onClick={() => setCurrentStep(3)} 
-                disabled={!canProceed(2)}
-              >
-                Next: Diagnosis
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {currentStep === 3 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Traditional Medicine Diagnosis
-            </CardTitle>
-            <CardDescription>
-              Select the traditional medicine system and appropriate diagnosis
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Traditional Medicine System</Label>
-              <Select 
-                value={encounter.selectedSystem || ''} 
-                onValueChange={(value) => setEncounter(prev => ({ 
-                  ...prev, 
-                  selectedSystem: value as any,
-                  namasteCode: '',
-                  namasteDisplay: '',
-                  icd11Code: '',
-                  icd11Display: ''
-                }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a traditional medicine system" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ayurveda">Ayurveda</SelectItem>
-                  <SelectItem value="siddha">Siddha</SelectItem>
-                  <SelectItem value="unani">Unani</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {encounter.selectedSystem && (
-              <div className="space-y-2">
-                <Label>Diagnosis Code</Label>
-                <Select 
-                  value={encounter.namasteCode || ''} 
-                  onValueChange={handleDiagnosisSelect}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select appropriate diagnosis" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {namasteOptions[encounter.selectedSystem].map((option) => (
-                      <SelectItem key={option.code} value={option.code}>
-                        {option.display} ({option.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+                <div className="flex justify-between pt-4">
+                  <Button variant="outline" onClick={() => setCurrentStep(1)}>
+                    Back
+                  </Button>
+                  <Button 
+                    onClick={() => setCurrentStep(3)} 
+                    disabled={!selectedDiagnosis}
+                  >
+                    Continue to Notes
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-            {encounter.namasteCode && (
-              <Alert>
-                <CheckCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="space-y-2">
-                    <p className="font-medium">Selected Diagnosis:</p>
-                    <div className="bg-muted p-3 rounded">
-                      <p className="font-medium">{encounter.namasteDisplay}</p>
-                      <p className="text-sm text-muted-foreground">Code: {encounter.namasteCode}</p>
-                      <p className="text-sm text-muted-foreground">System: {encounter.selectedSystem}</p>
-                    </div>
-                    <p className="text-sm">
-                      This will automatically map to ICD-11 code: <strong>{encounter.icd11Code}</strong> ({encounter.icd11Display})
-                    </p>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="practitionerNotes">Practitioner Notes (Optional)</Label>
-              <Textarea
-                id="practitionerNotes"
-                placeholder="Additional clinical observations and treatment plan..."
-                value={encounter.practitionerNotes || ''}
-                onChange={(e) => setEncounter(prev => ({ ...prev, practitionerNotes: e.target.value }))}
-                rows={3}
-              />
-            </div>
-
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setCurrentStep(2)}>
-                Back
-              </Button>
-              <Button 
-                onClick={() => setCurrentStep(4)} 
-                disabled={!canProceed(3)}
-              >
-                Generate Dual-Coded Record
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {currentStep === 4 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5" />
-              Dual-Coded Clinical Record
-            </CardTitle>
-            <CardDescription>
-              Complete encounter record with both traditional and international coding
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Patient Summary */}
-            <div>
-              <h3 className="font-semibold mb-3">Patient Summary</h3>
-              <div className="bg-muted p-4 rounded-lg">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium">Patient ID</p>
-                    <p className="text-sm">{encounter.patientId}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Name</p>
-                    <p className="text-sm">{encounter.patientName}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Date</p>
-                    <p className="text-sm">{encounter.encounterDate}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Chief Complaint</p>
-                    <p className="text-sm">{encounter.chiefComplaint}</p>
+          {currentStep === 3 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Clinical Notes
+                </CardTitle>
+                <CardDescription>
+                  Add additional clinical observations and treatment notes
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Selected Diagnosis</Label>
+                  <div className="p-3 bg-muted rounded-lg">
+                    {(() => {
+                      const term = sampleTerminologies.find(t => t.code === selectedDiagnosis)
+                      return term ? (
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline" className="font-mono text-xs">{term.code}</Badge>
+                            <Badge className="capitalize">{term.system}</Badge>
+                          </div>
+                          <h4 className="font-medium">{term.term}</h4>
+                          <p className="text-sm text-muted-foreground">{term.definition}</p>
+                        </div>
+                      ) : null
+                    })()}
                   </div>
                 </div>
-              </div>
-            </div>
 
-            <Separator />
+                <div>
+                  <Label>Clinical Notes</Label>
+                  <Textarea
+                    placeholder="Enter clinical observations, symptoms, treatment plan, and any additional notes..."
+                    value={clinicalNotes}
+                    onChange={(e) => setClinicalNotes(e.target.value)}
+                    rows={6}
+                    className="resize-none"
+                  />
+                </div>
 
-            {/* Dual Coding */}
-            <div>
-              <h3 className="font-semibold mb-3">Dual-Coded Diagnosis</h3>
-              <div className="grid md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg text-primary">Traditional Medicine</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <p className="font-medium">{encounter.namasteDisplay}</p>
-                      <p className="text-sm text-muted-foreground">Code: {encounter.namasteCode}</p>
-                      <Badge variant="default" className="capitalize">
-                        {encounter.selectedSystem}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="flex justify-between pt-4">
+                  <Button variant="outline" onClick={() => setCurrentStep(2)}>
+                    Back
+                  </Button>
+                  <Button onClick={handleSubmitEncounter}>
+                    Generate Dual-Coded Record
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg text-accent flex items-center gap-2">
-                      <Globe className="h-5 w-5" />
-                      ICD-11 International
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <p className="font-medium">{encounter.icd11Display}</p>
-                      <p className="text-sm text-muted-foreground">Code: {encounter.icd11Code}</p>
-                      <Badge variant="outline">WHO Standard</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-            {/* FHIR Bundle Preview */}
-            <div>
-              <h3 className="font-semibold mb-3">FHIR Bundle Structure</h3>
-              <Card>
-                <CardContent className="p-4">
-                  <pre className="text-xs bg-muted p-3 rounded overflow-x-auto">
-{`{
-  "resourceType": "Bundle",
-  "type": "transaction",
-  "entry": [
-    {
-      "resource": {
-        "resourceType": "Encounter",
-        "status": "finished",
-        "subject": { "reference": "Patient/${encounter.patientId}" }
-      }
-    },
-    {
-      "resource": {
-        "resourceType": "Condition",
-        "code": {
-          "coding": [
-            {
-              "system": "http://namstp.ayush.gov.in/fhir/CodeSystem/NAMASTE",
-              "code": "${encounter.namasteCode}",
-              "display": "${encounter.namasteDisplay}"
-            },
-            {
-              "system": "http://id.who.int/icd/release/11/mms",
-              "code": "${encounter.icd11Code}",
-              "display": "${encounter.icd11Display}"
-            }
-          ]
-        }
-      }
-    }
-  ]
-}`}
-                  </pre>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setCurrentStep(3)}>
-                Back to Edit
-              </Button>
-              <Button onClick={completeEncounter} className="bg-green-600 hover:bg-green-700">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Complete Encounter
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recent Encounters */}
-      {completedEncounters.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Demo Encounters</CardTitle>
-            <CardDescription>
-              Previously completed dual-coded clinical encounters
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {completedEncounters.map((enc, index) => (
-                <Card key={index} className="bg-muted/50">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{enc.patientName} ({enc.patientId})</p>
-                        <p className="text-sm text-muted-foreground">{enc.encounterDate}</p>
+          {currentStep === 4 && dualCodedRecord && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5" />
+                  Dual-Coded FHIR Record
+                </CardTitle>
+                <CardDescription>
+                  Complete clinical record with both NAMASTE and ICD-11 codes
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Tabs defaultValue="summary" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="summary">Summary View</TabsTrigger>
+                    <TabsTrigger value="fhir">FHIR JSON</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="summary" className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 bg-traditional/10 border border-traditional/20 rounded-lg">
+                        <h4 className="font-semibold text-traditional mb-2">Traditional Medicine Code</h4>
+                        <div className="space-y-1">
+                          <p><span className="font-medium">System:</span> NAMASTE</p>
+                          <p><span className="font-medium">Code:</span> {selectedDiagnosis}</p>
+                          <p><span className="font-medium">Term:</span> {sampleTerminologies.find(t => t.code === selectedDiagnosis)?.term}</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <Badge variant="outline" className="mb-1">{enc.namasteCode}</Badge>
-                        <p className="text-xs text-muted-foreground">→ {enc.icd11Code}</p>
+                      
+                      <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
+                        <h4 className="font-semibold text-primary mb-2">ICD-11 Code</h4>
+                        <div className="space-y-1">
+                          {(() => {
+                            const mappings: { [key: string]: { icd11Code: string; icd11Term: string } } = {
+                              'AAE-16': { icd11Code: 'FA20', icd11Term: 'Osteoarthritis' },
+                              'AST-23': { icd11Code: 'DA60', icd11Term: 'Gastro-oesophageal reflux disease' },
+                              'SUC-45': { icd11Code: 'FA20.0&XK8G', icd11Term: 'Rheumatoid arthritis of multiple sites' },
+                              'UNI-12': { icd11Code: 'MG30', icd11Term: 'Joint pain' },
+                              'AYU-78': { icd11Code: 'MD12', icd11Term: 'Cough' }
+                            }
+                            const mapping = mappings[selectedDiagnosis]
+                            return mapping ? (
+                              <>
+                                <p><span className="font-medium">System:</span> ICD-11 MMS</p>
+                                <p><span className="font-medium">Code:</span> {mapping.icd11Code}</p>
+                                <p><span className="font-medium">Term:</span> {mapping.icd11Term}</p>
+                              </>
+                            ) : <p>No mapping available</p>
+                          })()}
+                        </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <h4 className="font-semibold mb-2">Record Summary</h4>
+                      <div className="space-y-1 text-sm">
+                        <p><span className="font-medium">Patient:</span> {samplePatient.name} ({samplePatient.id})</p>
+                        <p><span className="font-medium">Encounter Date:</span> {new Date().toLocaleDateString()}</p>
+                        <p><span className="font-medium">Resource Type:</span> FHIR R4 Bundle</p>
+                        <p><span className="font-medium">Resources:</span> Patient, Encounter, Condition</p>
+                      </div>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="fhir">
+                    <div className="bg-muted p-4 rounded-lg">
+                      <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                        {JSON.stringify(dualCodedRecord, null, 2)}
+                      </pre>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+
+                <div className="flex justify-between pt-4">
+                  <Button variant="outline" onClick={() => setCurrentStep(1)}>
+                    Start New Encounter
+                  </Button>
+                  <Button>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download FHIR Bundle
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Demo Features</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                <span>ABHA-authenticated patient lookup</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                <span>Real-time NAMASTE terminology search</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                <span>Automatic ICD-11 mapping</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                <span>FHIR R4 compliant output</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                <span>Dual coding validation</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Integration Points</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div>
+                <span className="font-medium">Authentication:</span> ABDM/ABHA OAuth 2.0
+              </div>
+              <div>
+                <span className="font-medium">Terminology:</span> NAMASTE Portal API
+              </div>
+              <div>
+                <span className="font-medium">Standards:</span> FHIR R4, ICD-11 TM2
+              </div>
+              <div>
+                <span className="font-medium">Data Exchange:</span> NRCeS Profiles
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
