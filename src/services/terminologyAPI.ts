@@ -1,24 +1,23 @@
+import { useState, useEffect } from 'react'
+
 /**
- * Provides integration with the FastAPI backen
+ * NAMASTE-ICD11 Terminology Service API
+ * Provides integration with the FastAPI backend for traditional medicine terminology services
+ */
 
-  ?
-
+// Types for NAMASTE terminology concepts
+export interface NAMASTEConcept {
   code: string
+  display: string
   originalTerm: string
   definition: string
+  system: 'ayurveda' | 'siddha' | 'unani'
+}
 
+// Types for concept mappings between NAMASTE and ICD-11
 export interface ConceptMapping {
-  namasteTerm:
-  system: string
-  icd11Term: string | 
-  confidence: number
-  clinicalNotes: str
-
- 
-
-
-  result: boolean
   namasteTerm: string
+  namasteCode: string
   originalTerm: string
   system: string
   icd11Code: string | null
@@ -27,486 +26,540 @@ export interface ConceptMapping {
   confidence: number
   mappingType: 'direct' | 'contextual' | 'clustered' | 'unmapped'
   clinicalNotes: string
-e
+}
 
+// Types for translation requests and responses
 export interface TranslateRequest {
   system: string
   code: string
   target?: string
- 
+}
 
 export interface TranslateResponse {
   result: boolean
   message?: string
+  matches: ConceptMapping[]
+}
+
+// Types for lookup search results
+export interface LookupRequest {
+  q: string
+  system?: string
+  limit?: number
+}
+
+export interface LookupResponse {
+  concepts: NAMASTEConcept[]
+  totalCount: number
+}
+
+// Types for clinical encounter data
+export interface ClinicalEncounter {
+  patientId: string
+  encounterId: string
+  namasteCode: string
+  namasteTerm: string
+  originalTerm: string
+  system: string
+  clinicalNotes?: string
+  timestamp: string
+}
+
+// Types for system statistics
+export interface Statistics {
+  total_terms: number
+  total_encounters: number
+  system_distribution: {
+    ayurveda: number
+    siddha: number
+    unani: number
   }
-  private async request
-    options: R
-    const url = `${th
-    const headers:
-      ...options.head
-
-      headers['Authoriz
-
-      ...options,
-    
- 
-
-
+  equivalence_distribution: {
+    equivalent: number
+    relatedto: number
+    wider: number
+    narrower: number
+    unmatched: number
   }
-  async healthCheck()
-  }
-  async searchTe
-    system?: stri
-  ):
- 
+}
 
-    if (system) {
+// API Configuration
+const API_BASE_URL = 'http://localhost:8000'
+const API_TIMEOUT = 10000
+
+class TerminologyAPI {
+  private baseUrl: string
+  private timeout: number
+
+  constructor(baseUrl: string = API_BASE_URL, timeout: number = API_TIMEOUT) {
+    this.baseUrl = baseUrl
+    this.timeout = timeout
+  }
+
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
     }
-    return this.reques
 
-    return this.request('/ConceptMap/$transla
-      body: JSON.stringify(request),
- 
+    // Add authorization header if available
+    if (options.headers && 'Authorization' in options.headers) {
+      headers['Authorization'] = options.headers['Authorization'] as string
+    }
 
-    system?: string,
-  ): Promise<ConceptMappi
-      limit: limit.toString(),
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      signal: AbortSignal.timeout(this.timeout),
+    })
 
-      params.append('equivalence', equivalence)
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status} ${response.statusText}`)
+    }
 
-   
-
+    return response.json()
   }
-  async submitEncounter(bu
-   
 
+  // Terminology lookup endpoint
+  async lookup(request: LookupRequest): Promise<LookupResponse> {
+    const params = new URLSearchParams({
+      q: request.q,
+      ...(request.system && { system: request.system }),
+      ...(request.limit && { limit: request.limit.toString() }),
+    })
 
-    return this.reques
-}
-// Create singlet
+    return this.request<LookupResponse>(`/lookup?${params}`)
+  }
 
-if (
-}
-// React hook for terminology search with
-
-  que
-
-  const [results, setResu
-  const [error, setError] = useState<string | null>(null)
-  use
-
-      return
-
-      setLoadi
-
-
-      } catch (err) {
-        setError(errorMessage)
-        
-     
-
-      } finally {
-   
-
-    return () => clearTimeout(timeoutId)
-
-}
-
-  const sampleData: NAMAST
-    {
-      system: "ayurv
-      englishTerm: "Sa
-      category: "Vata Disorders"
-    {
-      system: "
-      englishTerm: "Amavata",
-      
-
-      system: "ay
-      englishTerm: "Gridhrasi",
-     
-
-    {
-   
-
-      category: "Pitta Disorders"
-    {
+  // Translation endpoint
+  async translate(request: TranslateRequest): Promise<TranslateResponse> {
+    return this.request<TranslateResponse>('/ConceptMap/$translate', {
       method: 'POST',
-      englishTerm: "Kamala",
-      
-   
-
-      system: "ayurveda",
-      englishTerm: "Shvas
-      category: "Kap
-    {
-      system: "ayurveda",
-      englishTerm: "Kasa",
-      category: "Kapha Disorde
-    {
-
-      englishTerm: "Pr
-      category: "Kapha Disorders"
-    
-
-      system: "si
-      englishTerm: "Vatha Noi",
-     
-
-      system: "siddha",
-   
-
-    
-    {
-      system: "siddha
-      body: JSON.stringify(bundle),
+      body: JSON.stringify({
+        resourceType: 'Parameters',
+        parameter: [
+          { name: 'system', valueUri: 'http://namstp.ayush.gov.in/fhir/CodeSystem/NAMASTE' },
+          { name: 'code', valueCode: request.code },
+          { name: 'target', valueUri: 'http://id.who.int/icd/release/11/mms' },
+        ],
+      }),
     })
   }
 
+  // Clinical encounter submission
+  async submitEncounter(encounter: ClinicalEncounter): Promise<{ success: boolean; encounterId: string }> {
+    return this.request<{ success: boolean; encounterId: string }>('/Encounter', {
+      method: 'POST',
+      body: JSON.stringify({
+        resourceType: 'Bundle',
+        type: 'transaction',
+        entry: [
+          {
+            resource: {
+              resourceType: 'Encounter',
+              id: encounter.encounterId,
+              status: 'finished',
+              subject: { reference: `Patient/${encounter.patientId}` },
+            },
+          },
+          {
+            resource: {
+              resourceType: 'Condition',
+              code: {
+                coding: [
+                  {
+                    system: 'http://namstp.ayush.gov.in/fhir/CodeSystem/NAMASTE',
+                    code: encounter.namasteCode,
+                    display: encounter.namasteTerm,
+                  },
+                ],
+              },
+              subject: { reference: `Patient/${encounter.patientId}` },
+            },
+          },
+        ],
+      }),
+    })
+  }
+
+  // System statistics
   async getStatistics(): Promise<Statistics> {
-    return this.request('/statistics')
+    return this.request<Statistics>('/statistics')
+  }
+
+  // Health check
+  async healthCheck(): Promise<{ status: string; timestamp: string }> {
+    return this.request<{ status: string; timestamp: string }>('/health')
   }
 }
 
-// Create singleton instance with demo authentication
-export const terminologyAPI = new TerminologyServiceAPI()
+// Sample data for demonstration when backend is not available
+const sampleTerminology: NAMASTEConcept[] = [
+  {
+    code: 'AAE-16',
+    display: 'Sandhigatavata',
+    originalTerm: 'सन्धिगतवात',
+    definition: 'Degenerative joint disorder characterized by Vata vitiation in the joints',
+    system: 'ayurveda'
+  },
+  {
+    code: 'AAE-23',
+    display: 'Amavata',
+    originalTerm: 'आमवात',
+    definition: 'Rheumatoid arthritis-like condition with Ama and Vata involvement',
+    system: 'ayurveda'
+  },
+  {
+    code: 'AAE-45',
+    display: 'Prameha',
+    originalTerm: 'प्रमेह',
+    definition: 'Metabolic disorder characterized by excessive urination and sweet taste',
+    system: 'ayurveda'
+  },
+  {
+    code: 'AAE-67',
+    display: 'Hridayaroga',
+    originalTerm: 'हृदयरोग',
+    definition: 'Cardiac disorders affecting the heart organ and its functions',
+    system: 'ayurveda'
+  },
+  {
+    code: 'AAE-89',
+    display: 'Unmada',
+    originalTerm: 'उन्माद',
+    definition: 'Psychiatric disorder characterized by disturbed mental faculties',
+    system: 'ayurveda'
+  },
+  {
+    code: 'SSE-12',
+    display: 'Vatham',
+    originalTerm: 'வாதம்',
+    definition: 'Conditions related to Vatham dosha vitiation affecting movement and nervous system',
+    system: 'siddha'
+  },
+  {
+    code: 'SSE-34',
+    display: 'Pitham',
+    originalTerm: 'பித்தம்',
+    definition: 'Disorders caused by Pitham dosha affecting metabolism and heat regulation',
+    system: 'siddha'
+  },
+  {
+    code: 'SSE-56',
+    display: 'Kabam',
+    originalTerm: 'கபம்',
+    definition: 'Conditions arising from Kabam dosha vitiation affecting structure and immunity',
+    system: 'siddha'
+  },
+  {
+    code: 'SSE-78',
+    display: 'Gunmam',
+    originalTerm: 'குன்மம்',
+    definition: 'Abdominal disorders characterized by lumps or growths in the abdomen',
+    system: 'siddha'
+  },
+  {
+    code: 'SSE-90',
+    display: 'Mega Noi',
+    originalTerm: 'மேக நோய்',
+    definition: 'Urogenital disorders affecting reproductive and urinary systems',
+    system: 'siddha'
+  },
+  {
+    code: 'UUE-11',
+    display: 'Balgham',
+    originalTerm: 'بلغم',
+    definition: 'Phlegmatic temperament disorders causing cold and moist pathological conditions',
+    system: 'unani'
+  },
+  {
+    code: 'UUE-22',
+    display: 'Safra',
+    originalTerm: 'صفرا',
+    definition: 'Bilious temperament disorders characterized by heat and dryness',
+    system: 'unani'
+  },
+  {
+    code: 'UUE-33',
+    display: 'Sauda',
+    originalTerm: 'سودا',
+    definition: 'Melancholic temperament causing cold and dry pathological states',
+    system: 'unani'
+  },
+  {
+    code: 'UUE-44',
+    display: 'Dam',
+    originalTerm: 'دم',
+    definition: 'Sanguine temperament disorders affecting blood and circulation',
+    system: 'unani'
+  },
+  {
+    code: 'UUE-55',
+    display: 'Waram',
+    originalTerm: 'ورم',
+    definition: 'Inflammatory conditions characterized by swelling, heat, redness and pain',
+    system: 'unani'
+  }
+]
 
-// Set demo token for development
-if (process.env.NODE_ENV === 'development') {
-  terminologyAPI.setAuthToken('demo_abha_token_for_development')
-}
+const sampleMappings: ConceptMapping[] = [
+  {
+    namasteTerm: "Sandhigatavata",
+    namasteCode: "AAE-16",
+    originalTerm: "सन्धिगतवात",
+    system: "ayurveda",
+    icd11Code: "FA20",
+    icd11Term: "Osteoarthritis",
+    equivalence: "equivalent",
+    confidence: 0.9,
+    mappingType: "direct",
+    clinicalNotes: "Strong correlation between Sandhigatavata and biomedical osteoarthritis diagnosis"
+  },
+  {
+    namasteTerm: "Amavata",
+    namasteCode: "AAE-23", 
+    originalTerm: "आमवात",
+    system: "ayurveda",
+    icd11Code: "FA20.0",
+    icd11Term: "Rheumatoid arthritis",
+    equivalence: "relatedto",
+    confidence: 0.8,
+    mappingType: "contextual",
+    clinicalNotes: "Amavata shares clinical features with rheumatoid arthritis but includes broader systemic involvement"
+  },
+  {
+    namasteTerm: "Prameha",
+    namasteCode: "AAE-45",
+    originalTerm: "प्रमेह",
+    system: "ayurveda", 
+    icd11Code: "5A10",
+    icd11Term: "Type 2 diabetes mellitus",
+    equivalence: "wider",
+    confidence: 0.7,
+    mappingType: "contextual",
+    clinicalNotes: "Prameha encompasses various urinary disorders including but not limited to diabetes mellitus"
+  },
+  {
+    namasteTerm: "Hridayaroga",
+    namasteCode: "AAE-67",
+    originalTerm: "हृदयरोग",
+    system: "ayurveda",
+    icd11Code: "BA00-BE2Z",
+    icd11Term: "Diseases of the circulatory system", 
+    equivalence: "wider",
+    confidence: 0.6,
+    mappingType: "clustered",
+    clinicalNotes: "Hridayaroga is a broad category requiring specific subtype identification for precise ICD-11 mapping"
+  },
+  {
+    namasteTerm: "Unmada",
+    namasteCode: "AAE-89",
+    originalTerm: "उन्माद",
+    system: "ayurveda",
+    icd11Code: "6A00-6E8Z",
+    icd11Term: "Mental, behavioural or neurodevelopmental disorders",
+    equivalence: "wider", 
+    confidence: 0.5,
+    mappingType: "clustered",
+    clinicalNotes: "Unmada covers various psychiatric conditions requiring detailed assessment for specific mapping"
+  },
+  {
+    namasteTerm: "Vatham",
+    namasteCode: "SSE-12",
+    originalTerm: "வாதம்",
+    system: "siddha",
+    icd11Code: "8A00-8E7Z",
+    icd11Term: "Diseases of the nervous system",
+    equivalence: "relatedto",
+    confidence: 0.6,
+    mappingType: "contextual", 
+    clinicalNotes: "Vatham encompasses neurological and movement disorders with some overlap to biomedical neurology"
+  },
+  {
+    namasteTerm: "Pitham", 
+    namasteCode: "SSE-34",
+    originalTerm: "பித்தம்",
+    system: "siddha",
+    icd11Code: "DB90-DC8Z", 
+    icd11Term: "Diseases of the digestive system",
+    equivalence: "relatedto",
+    confidence: 0.6,
+    mappingType: "contextual",
+    clinicalNotes: "Pitham affects digestion, metabolism and heat regulation with primary digestive system involvement"
+  },
+  {
+    namasteTerm: "Kabam",
+    namasteCode: "SSE-56", 
+    originalTerm: "கபம்",
+    system: "siddha",
+    icd11Code: "CB00-CB8Z",
+    icd11Term: "Diseases of the respiratory system",
+    equivalence: "relatedto",
+    confidence: 0.5,
+    mappingType: "contextual",
+    clinicalNotes: "Kabam vitiation often manifests as respiratory and structural disorders"
+  },
+  {
+    namasteTerm: "Gunmam",
+    namasteCode: "SSE-78",
+    originalTerm: "குன்மம்",
+    system: "siddha", 
+    icd11Code: "DD80",
+    icd11Term: "Abdominal mass",
+    equivalence: "equivalent",
+    confidence: 0.8,
+    mappingType: "direct",
+    clinicalNotes: "Gunmam directly correlates with palpable abdominal masses or lumps"
+  },
+  {
+    namasteTerm: "Mega Noi",
+    namasteCode: "SSE-90",
+    originalTerm: "மேக நோய்",
+    system: "siddha",
+    icd11Code: "GC00-GC4Z", 
+    icd11Term: "Diseases of the genitourinary system",
+    equivalence: "relatedto",
+    confidence: 0.7,
+    mappingType: "contextual",
+    clinicalNotes: "Mega Noi encompasses urogenital disorders with broader traditional medicine context"
+  },
+  {
+    namasteTerm: "Balgham",
+    namasteCode: "UUE-11",
+    originalTerm: "بلغم",
+    system: "unani",
+    icd11Code: "CB00-CB8Z",
+    icd11Term: "Diseases of the respiratory system",
+    equivalence: "relatedto", 
+    confidence: 0.6,
+    mappingType: "contextual",
+    clinicalNotes: "Balgham temperament primarily affects respiratory system with cold, moist pathology"
+  },
+  {
+    namasteTerm: "Safra",
+    namasteCode: "UUE-22",
+    originalTerm: "صفرا",
+    system: "unani",
+    icd11Code: "DB90-DC8Z",
+    icd11Term: "Diseases of the digestive system",
+    equivalence: "relatedto",
+    confidence: 0.6,
+    mappingType: "contextual", 
+    clinicalNotes: "Safra temperament affects biliary and digestive functions with heat-related pathology"
+  },
+  {
+    namasteTerm: "Sauda",
+    namasteCode: "UUE-33",
+    originalTerm: "سودا",
+    system: "unani",
+    icd11Code: "6A00-6E8Z",
+    icd11Term: "Mental, behavioural or neurodevelopmental disorders",
+    equivalence: "relatedto",
+    confidence: 0.5,
+    mappingType: "contextual",
+    clinicalNotes: "Sauda temperament often manifests as melancholic and depressive conditions"
+  },
+  {
+    namasteTerm: "Dam",
+    namasteCode: "UUE-44", 
+    originalTerm: "دم",
+    system: "unani",
+    icd11Code: "BA00-BE2Z",
+    icd11Term: "Diseases of the circulatory system",
+    equivalence: "relatedto",
+    confidence: 0.7,
+    mappingType: "contextual",
+    clinicalNotes: "Dam temperament primarily affects blood and circulatory system functions"
+  },
+  {
+    namasteTerm: "Waram",
+    namasteCode: "UUE-55",
+    originalTerm: "ورم", 
+    system: "unani",
+    icd11Code: "MH70",
+    icd11Term: "Inflammatory response",
+    equivalence: "equivalent",
+    confidence: 0.9,
+    mappingType: "direct",
+    clinicalNotes: "Waram directly corresponds to inflammatory conditions with classical signs of inflammation"
+  }
+]
 
-// React hook for terminology search with debouncing
-import { useState, useEffect, useMemo } from 'react'
+// Create API instance
+const terminologyAPI = new TerminologyAPI()
 
-export function useTerminologySearch(
-  query: string,
-  system?: string,
-  debounceMs: number = 300
-) {
-  const [results, setResults] = useState<NAMASTEConcept[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+// Enhanced API methods with fallback to sample data
+const enhancedAPI = {
+  ...terminologyAPI,
 
-  useEffect(() => {
-    if (!query.trim()) {
-      setResults([])
-      setError(null)
-      return
-     
+  async lookup(request: LookupRequest): Promise<LookupResponse> {
+    try {
+      return await terminologyAPI.lookup(request)
+    } catch (error) {
+      // Fallback to sample data with filtering
+      const filtered = sampleTerminology.filter(concept => {
+        const matchesQuery = concept.display.toLowerCase().includes(request.q.toLowerCase()) ||
+                           concept.originalTerm.toLowerCase().includes(request.q.toLowerCase()) ||
+                           concept.definition.toLowerCase().includes(request.q.toLowerCase())
+        const matchesSystem = !request.system || concept.system === request.system
+        return matchesQuery && matchesSystem
+      })
 
-    const searchTerminology = async () => {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const searchResults = await terminologyAPI.searchTerminology(query, system)
-        setResults(searchResults)
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Search failed'
-        setError(errorMessage)
-        setResults([])
-        
-        // If backend is not available, provide sample data for demonstration
-        if (errorMessage.includes('fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('ECONNREFUSED')) {
-          setError("Backend not connected - showing sample data")
-          setResults(getSampleTerminologies(query, system))
-        }
-      } finally {
-        setLoading(false)
+      const limited = filtered.slice(0, request.limit || 10)
+      
+      return {
+        concepts: limited,
+        totalCount: filtered.length
       }
     }
+  },
 
-    const timeoutId = setTimeout(searchTerminology, debounceMs)
-    return () => clearTimeout(timeoutId)
-  }, [query, system, debounceMs])
+  async translate(request: TranslateRequest): Promise<TranslateResponse> {
+    try {
+      return await terminologyAPI.translate(request)
+    } catch (error) {
+      // Fallback to sample mapping data
+      const mappings = sampleMappings.filter(mapping => 
+        mapping.namasteCode === request.code
+      )
 
-  return { results, loading, error }
-}
-
-// Sample data for offline demonstration
-function getSampleTerminologies(query: string, system?: string): NAMASTEConcept[] {
-  const sampleData: NAMASTEConcept[] = [
-    {
-      code: "AAE-16",
-      system: "ayurveda",
-      originalTerm: "सन्धिगतवात",
-      englishTerm: "Sandhigatavata",
-      definition: "Osteoarthritis - degenerative joint disease characterized by pain and stiffness",
-      category: "Vata Disorders"
-    },
-    {
-      code: "AAE-23",
-      system: "ayurveda", 
-      originalTerm: "अमवात",
-      englishTerm: "Amavata",
-      definition: "Rheumatoid arthritis - inflammatory joint disease with systemic manifestations",
-      category: "Vata Disorders"
-    },
-    {
-      code: "APE-12",
-      system: "ayurveda",
-      originalTerm: "अम्लपित्त", 
-      englishTerm: "Amlapitta",
-      definition: "Hyperacidity - excessive acid production in stomach causing heartburn",
-      category: "Pitta Disorders"
-    },
-    {
-      code: "AKE-18",
-      system: "ayurveda",
-      originalTerm: "श्वास",
-      englishTerm: "Shvasa",
-      definition: "Dyspnea/Asthma - difficulty in breathing with wheezing",
-      category: "Kapha Disorders"
-    },
-    {
-      code: "SNP-101",
-      system: "siddha",
-      originalTerm: "வாத நோய்",
-      englishTerm: "Vatha Noi",
-      definition: "Wind-related disorders affecting nervous and musculoskeletal systems",
-      category: "Noi Nadal (Pathology)"
-    },
-    {
-      code: "SNP-515",
-      system: "siddha",
-      originalTerm: "காய்ச்சல்",
-      englishTerm: "Kaichal", 
-      definition: "Fever - elevated body temperature as immune response",
-      category: "Maruthuvam (General Medicine)"
-    },
-    {
-      code: "UHM-301",
-      system: "unani",
-      originalTerm: "حمیٰ",
-      englishTerm: "Humma",
-      definition: "Fever - pyrexia with constitutional symptoms", 
-      category: "Amraz-e-Amma (General Diseases)"
-    },
-    {
-      code: "UJD-629",
-      system: "unani",
-      originalTerm: "ورم مفاصل",
-      englishTerm: "Waram Mafasil",
-      definition: "Arthritis - inflammation of joints with pain and swelling",
-      category: "Joint Disorders"
-    }
-  ]
-
-  const queryLower = query.toLowerCase()
-  
-  return sampleData.filter(item => {
-    const matchesSystem = !system || item.system === system
-    const matchesQuery = 
-      item.code.toLowerCase().includes(queryLower) ||
-      item.englishTerm.toLowerCase().includes(queryLower) ||
-      item.definition.toLowerCase().includes(queryLower) ||
-      item.category.toLowerCase().includes(queryLower)
-    
-    return matchesSystem && matchesQuery
-  }).slice(0, 10)
-}
-
-// React hook for concept mappings
-export function useConceptMappings(
-  equivalence?: string,
-  system?: string
-) {
-  const [mappings, setMappings] = useState<ConceptMapping[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const fetchMappings = async () => {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const mappingResults = await terminologyAPI.getConceptMappings(equivalence, system)
-        setMappings(mappingResults)
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch mappings'
-        setError(errorMessage)
-        
-        // If backend is not available, provide sample mappings for demonstration
-        if (errorMessage.includes('fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('ECONNREFUSED')) {
-          setError("Backend not connected - showing sample data")
-          setMappings(getSampleMappings(equivalence, system))
-        } else {
-          setMappings([])
-        }
-      } finally {
-        setLoading(false)
+      return {
+        result: mappings.length > 0,
+        message: mappings.length > 0 ? 'Translation found' : 'No translation available',
+        matches: mappings
       }
     }
+  },
 
-    {
-  }, [equivalence, system])
+  async getMappings(filters?: {
+    system?: string
+    equivalence?: string
+    limit?: number
+  }): Promise<ConceptMapping[]> {
+    try {
+      // This would call a real backend endpoint for mappings
+      const response = await terminologyAPI.request<ConceptMapping[]>('/mappings')
+      return response
+    } catch (error) {
+      // Fallback to sample data with filtering
+      let filtered = [...sampleMappings]
 
-  return { mappings, loading, error, refetch: () => fetchMappings() }
- 
+      if (filters?.equivalence) {
+        filtered = filtered.filter(mapping => mapping.equivalence === filters.equivalence)
+      }
 
-// Sample mapping data for offline demonstration
-function getSampleMappings(equivalence?: string, system?: string): ConceptMapping[] {
-    {
-    {
-      namasteCode: "AAE-16",
-      namasteTerm: "Sandhigatavata", 
-      originalTerm: "सन्धिगतवात",
-      system: "ayurveda",
-      mappingType: "cont
-      icd11Term: "Osteoarthritis",
-    {
-      confidence: 0.95,
-      mappingType: "direct",
-      clinicalNotes: "Direct mapping - Sandhigatavata corresponds precisely to ICD-11 osteoarthritis with similar pathophysiology"
-      
-    {
-      namasteCode: "AAE-23",
-      namasteTerm: "Amavata",
-      originalTerm: "अमवात", 
-      system: "ayurveda",
-      originalTerm: "இரு
-      icd11Term: "Rheumatoid arthritis",
-      equivalence: "equivalent",
-      confidence: 0.92,
-      mappingType: "unmapped
-      clinicalNotes: "Amavata matches rheumatoid arthritis profile with inflammatory joint involvement and systemic effects"
-    {
-    {
-      originalTerm: "முக்குற
-      namasteTerm: "Amlapitta",
-      originalTerm: "अम्लपित्त",
-      system: "ayurveda", 
-      icd11Code: "DA00",
-      icd11Term: "Gastro-oesophageal reflux disease",
-      equivalence: "equivalent",
-      confidence: 0.85,
-      mappingType: "direct",
-      clinicalNotes: "Amlapitta corresponds to GERD with acid reflux and hyperacidity symptoms"
-    fi
-    {
-      namasteCode: "AKE-18",
-      namasteTerm: "Shvasa",
-      originalTerm: "श्वास",
-      system: "ayurveda",
-      icd11Code: "CA20", 
-      icd11Term: "Asthma",
-  const [statistics, setStatisti
-      confidence: 0.87,
-      mappingType: "direct",
-      clinicalNotes: "Shvasa maps to asthma with similar respiratory obstruction and wheezing patterns"
-      
-    {
-      namasteCode: "SGM-515", 
-      namasteTerm: "Kaichal",
-      originalTerm: "காய்ச்சல்",
-      system: "siddha",
-        
-      icd11Term: "Fever, unspecified",
-          setError("Backend not c
-      confidence: 0.94,
-      mappingType: "direct",
-      clinicalNotes: "Kaichal directly corresponds to fever with elevated temperature and constitutional symptoms"
-      
-    {
-            },
-      namasteTerm: "Vatha Noi", 
-      originalTerm: "வாத நோய்",
-      system: "siddha",
-      icd11Code: "FA3Z",
-      icd11Term: "Osteoarthritis",
-        } else {
-      confidence: 0.75,
-      } finally {
-      clinicalNotes: "Vatha Noi represents broader wind-related musculoskeletal disorders; osteoarthritis is a common manifestation"
+      if (filters?.system) {
+        filtered = filtered.filter(mapping => mapping.system === filters.system)
+      }
+
+      if (filters?.limit) {
+        filtered = filtered.slice(0, filters.limit)
+      }
+
+      return filtered
     }
-    {
-  }, [])
-      namasteTerm: "Humma",
-      originalTerm: "حمیٰ",
-      system: "unani",
-      icd11Code: "1C62", 
-      icd11Term: "Fever, unspecified",
-      equivalence: "equivalent",
-      confidence: 0.95,
-      mappingType: "direct",
-      clinicalNotes: "Humma directly corresponds to fever with similar presentation of elevated temperature and systemic symptoms"
-    },
-    {
-      namasteCode: "UJD-629",
-      namasteTerm: "Waram Mafasil",
-
-      system: "unani",
-
-      icd11Term: "Rheumatoid arthritis",
-
-      confidence: 0.82,
-      mappingType: "contextual", 
-      clinicalNotes: "Waram Mafasil encompasses various arthritides; rheumatoid arthritis represents prototypical inflammatory joint disease"
-
-    {
-      namasteCode: "AKE-61",
-      namasteTerm: "Prameha", 
-      originalTerm: "प्रमेह",
-      system: "ayurveda",
-
-      icd11Term: "Type 2 diabetes mellitus",
-
-      confidence: 0.78,
-
-      clinicalNotes: "Prameha encompasses broader urinary disorders; Type 2 diabetes represents the most common modern equivalent"
-    },
-    {
-      namasteCode: "AAE-89",
-      namasteTerm: "Gridhrasi",
-      originalTerm: "गृध्रसी",
-      system: "ayurveda",
-
-      icd11Term: null,
-
-      confidence: 0.0,
-
-      clinicalNotes: "Gridhrasi represents complex traditional understanding of sciatic pain requiring specific anatomical context for precise ICD-11 mapping"
-
-    {
-      namasteCode: "SGM-628",
-      namasteTerm: "Irumal",
-      originalTerm: "இருமல்",
-      system: "siddha",
-      icd11Code: null,
-      icd11Term: null,
-      equivalence: "unmatched",
-      confidence: 0.0, 
-      mappingType: "unmapped",
-      clinicalNotes: "Irumal (cough) requires more specific ICD-11 classification based on underlying etiology"
-
-    {
-
-      namasteTerm: "Mukkutra Noi",
-      originalTerm: "முக்குற்ற நோய்",
-      system: "siddha",
-      icd11Code: null,
-      icd11Term: null,
-      equivalence: "unmatched",
-      confidence: 0.0,
-      mappingType: "unmapped", 
-      clinicalNotes: "Mukkutra Noi represents tri-dosha vitiation - a holistic traditional concept without direct biomedical equivalent"
-
-  ]
-
-  // Apply filters
-
-
-
-    filtered = filtered.filter(mapping => mapping.equivalence === equivalence)
-
-
-  if (system) {
-    filtered = filtered.filter(mapping => mapping.system === system)
-
-
-
+  }
 }
 
 // React hook for statistics
@@ -530,25 +583,24 @@ export function useStatistics() {
         // Provide realistic sample statistics based on the mapping data
         if (errorMessage.includes('fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('ECONNREFUSED')) {
           setError("Backend not connected - showing sample data")
-
+          setStatistics({
             total_terms: 31,
-
             total_encounters: 156,
             system_distribution: {
               ayurveda: 15,
               siddha: 8,
               unani: 8
-
+            },
             equivalence_distribution: {
               equivalent: 7,
-              relatedto: 2,
-
-              narrower: 0,
-
+              relatedto: 12,
+              wider: 8,
+              narrower: 3,
+              unmatched: 1
             }
-
+          })
         } else {
-
+          setStatistics(null)
         }
       } finally {
         setLoading(false)
@@ -556,9 +608,9 @@ export function useStatistics() {
     }
 
     fetchStatistics()
-
+  }, [])
 
   return { statistics, loading, error, refetch: () => fetchStatistics() }
 }
 
-export default terminologyAPI
+export default enhancedAPI
