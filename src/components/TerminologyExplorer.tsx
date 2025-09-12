@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MagnifyingGlass, Leaf, Globe, BookOpen, Spinner } from '@phosphor-icons/react'
 import { lookupConcepts, useStatistics, type NAMASTEConcept } from '@/services/terminologyAPI'
-import BackendStatusIndicator from '@/components/BackendStatusIndicator'
 
 export default function TerminologyExplorer() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -192,8 +191,6 @@ export default function TerminologyExplorer() {
             </div>
           </CardContent>
         </Card>
-
-        <BackendStatusIndicator />
       </div>
 
       {/* Results Panel */}
