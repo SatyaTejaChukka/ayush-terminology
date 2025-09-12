@@ -168,8 +168,13 @@ class TerminologyServiceAPI {
   }
 }
 
-// Create singleton instance
+// Create singleton instance with demo authentication
 export const terminologyAPI = new TerminologyServiceAPI()
+
+// Set demo token for development
+if (process.env.NODE_ENV === 'development') {
+  terminologyAPI.setAuthToken('demo_abha_token_for_development')
+}
 
 // React hook for terminology search with debouncing
 import { useState, useEffect, useMemo } from 'react'
@@ -222,12 +227,13 @@ export function useTerminologySearch(
 // Sample data for offline demonstration
 function getSampleTerminologies(query: string, system?: string): NAMASTEConcept[] {
   const sampleData: NAMASTEConcept[] = [
+    // Ayurveda - Vata Disorders
     {
       code: "AAE-16",
       system: "ayurveda",
       originalTerm: "सन्धिगतवात",
       englishTerm: "Sandhigatavata",
-      definition: "Osteoarthritis - degenerative joint disease characterized by pain and stiffness",
+      definition: "Osteoarthritis - degenerative joint disease characterized by pain and stiffness in joints",
       category: "Vata Disorders"
     },
     {
@@ -235,55 +241,131 @@ function getSampleTerminologies(query: string, system?: string): NAMASTEConcept[
       system: "ayurveda", 
       originalTerm: "अमवात",
       englishTerm: "Amavata",
-      definition: "Rheumatoid arthritis - inflammatory joint disease with systemic manifestations",
+      definition: "Rheumatoid arthritis - inflammatory joint disease with systemic manifestations and morning stiffness",
       category: "Vata Disorders"
     },
+    {
+      code: "AAE-89",
+      system: "ayurveda",
+      originalTerm: "गृध्रसी",
+      englishTerm: "Gridhrasi",
+      definition: "Sciatica - radiating pain along the course of the sciatic nerve from lower back to leg",
+      category: "Vata Disorders"
+    },
+    
+    // Ayurveda - Pitta Disorders
     {
       code: "APE-12",
       system: "ayurveda",
       originalTerm: "अम्लपित्त", 
       englishTerm: "Amlapitta",
-      definition: "Hyperacidity - excessive acid production in stomach causing heartburn",
+      definition: "Hyperacidity - excessive acid production in stomach causing heartburn and gastric discomfort",
       category: "Pitta Disorders"
     },
+    {
+      code: "APE-18",
+      system: "ayurveda",
+      originalTerm: "कामला",
+      englishTerm: "Kamala",
+      definition: "Jaundice - yellowish discoloration of skin and sclera due to elevated bilirubin levels",
+      category: "Pitta Disorders"
+    },
+    
+    // Ayurveda - Kapha Disorders
     {
       code: "AKE-18",
       system: "ayurveda",
       originalTerm: "श्वास",
       englishTerm: "Shvasa",
-      definition: "Dyspnea/Asthma - difficulty in breathing with wheezing",
+      definition: "Dyspnea/Asthma - difficulty in breathing with wheezing and chest tightness",
       category: "Kapha Disorders"
     },
+    {
+      code: "AKE-25",
+      system: "ayurveda",
+      originalTerm: "कास",
+      englishTerm: "Kasa",
+      definition: "Cough - forceful expulsion of air from lungs often with sputum production",
+      category: "Kapha Disorders"
+    },
+    {
+      code: "AKE-61",
+      system: "ayurveda",
+      originalTerm: "प्रमेह",
+      englishTerm: "Prameha",
+      definition: "Diabetes mellitus - metabolic disorder characterized by hyperglycemia and polyuria",
+      category: "Kapha Disorders"
+    },
+    
+    // Siddha - Noi Nadal (Pathology)
     {
       code: "SNP-101",
       system: "siddha",
       originalTerm: "வாத நோய்",
       englishTerm: "Vatha Noi",
-      definition: "Wind-related disorders affecting nervous and musculoskeletal systems",
+      definition: "Wind-related disorders affecting nervous and musculoskeletal systems causing pain and dysfunction",
       category: "Noi Nadal (Pathology)"
     },
     {
-      code: "SNP-515",
+      code: "SNP-407",
+      system: "siddha",
+      originalTerm: "முக்குற்ற நோய்",
+      englishTerm: "Mukkutra Noi",
+      definition: "Tri-dosha vitiation syndrome - imbalance of three humors causing systemic disorders",
+      category: "Noi Nadal (Pathology)"
+    },
+    
+    // Siddha - Maruthuvam (General Medicine)
+    {
+      code: "SGM-515",
       system: "siddha",
       originalTerm: "காய்ச்சல்",
       englishTerm: "Kaichal", 
-      definition: "Fever - elevated body temperature as immune response",
+      definition: "Fever - elevated body temperature as immune response to infection or inflammation",
       category: "Maruthuvam (General Medicine)"
     },
     {
-      code: "UHM-301",
+      code: "SGM-628",
+      system: "siddha",
+      originalTerm: "இருமல்",
+      englishTerm: "Irumal",
+      definition: "Cough - respiratory reflex to clear airways of irritants, secretions, or foreign particles",
+      category: "Maruthuvam (General Medicine)"
+    },
+    
+    // Unani - Amraz-e-Amma (General Diseases)
+    {
+      code: "UGA-301",
       system: "unani",
       originalTerm: "حمیٰ",
       englishTerm: "Humma",
-      definition: "Fever - pyrexia with constitutional symptoms", 
+      definition: "Fever - pyrexia with constitutional symptoms indicating imbalance of natural heat", 
       category: "Amraz-e-Amma (General Diseases)"
     },
+    {
+      code: "UGA-425",
+      system: "unani",
+      originalTerm: "یرقان",
+      englishTerm: "Yarqan",
+      definition: "Jaundice - hepatic disorder causing yellowing of skin and eyes due to bile stagnation",
+      category: "Amraz-e-Amma (General Diseases)"
+    },
+    
+    // Unani - Joint Disorders
     {
       code: "UJD-629",
       system: "unani",
       originalTerm: "ورم مفاصل",
       englishTerm: "Waram Mafasil",
-      definition: "Arthritis - inflammation of joints with pain and swelling",
+      definition: "Arthritis - inflammation of joints with pain, swelling and restricted movement",
+      category: "Joint Disorders"
+    },
+    {
+      code: "UJD-708",
+      system: "unani",
+      originalTerm: "وجع المفاصل",
+      englishTerm: "Waja al-Mafasil",
+      definition: "Joint pain syndrome - arthralgia affecting multiple joints with stiffness",
       category: "Joint Disorders"
     }
   ]
@@ -296,7 +378,8 @@ function getSampleTerminologies(query: string, system?: string): NAMASTEConcept[
       item.code.toLowerCase().includes(queryLower) ||
       item.englishTerm.toLowerCase().includes(queryLower) ||
       item.definition.toLowerCase().includes(queryLower) ||
-      item.category.toLowerCase().includes(queryLower)
+      item.category.toLowerCase().includes(queryLower) ||
+      item.originalTerm.toLowerCase().includes(queryLower)
     
     return matchesSystem && matchesQuery
   }).slice(0, 10)
