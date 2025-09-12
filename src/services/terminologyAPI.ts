@@ -183,15 +183,10 @@ export function useTerminologySearch(
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Debounce the query
-  const debouncedQuery = useMemo(() => {
-    const timeoutId = setTimeout(() => query, debounceMs)
-    return () => clearTimeout(timeoutId)
-  }, [query, debounceMs])
-
   useEffect(() => {
     if (!query.trim()) {
       setResults([])
+      setError(null)
       return
     }
 
@@ -203,8 +198,15 @@ export function useTerminologySearch(
         const searchResults = await terminologyAPI.searchTerminology(query, system)
         setResults(searchResults)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Search failed')
+        const errorMessage = err instanceof Error ? err.message : 'Search failed'
+        setError(errorMessage)
         setResults([])
+        
+        // If backend is not available, provide sample data for demonstration
+        if (errorMessage.includes('fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('ECONNREFUSED')) {
+          setError("Backend not connected - showing sample data")
+          setResults(getSampleTerminologies(query, system))
+        }
       } finally {
         setLoading(false)
       }
@@ -215,6 +217,89 @@ export function useTerminologySearch(
   }, [query, system, debounceMs])
 
   return { results, loading, error }
+}
+
+// Sample data for offline demonstration
+function getSampleTerminologies(query: string, system?: string): NAMASTEConcept[] {
+  const sampleData: NAMASTEConcept[] = [
+    {
+      code: "AAE-16",
+      system: "ayurveda",
+      originalTerm: "सन्धिगतवात",
+      englishTerm: "Sandhigatavata",
+      definition: "Osteoarthritis - degenerative joint disease characterized by pain and stiffness",
+      category: "Vata Disorders"
+    },
+    {
+      code: "AAE-23",
+      system: "ayurveda", 
+      originalTerm: "अमवात",
+      englishTerm: "Amavata",
+      definition: "Rheumatoid arthritis - inflammatory joint disease with systemic manifestations",
+      category: "Vata Disorders"
+    },
+    {
+      code: "APE-12",
+      system: "ayurveda",
+      originalTerm: "अम्लपित्त", 
+      englishTerm: "Amlapitta",
+      definition: "Hyperacidity - excessive acid production in stomach causing heartburn",
+      category: "Pitta Disorders"
+    },
+    {
+      code: "AKE-18",
+      system: "ayurveda",
+      originalTerm: "श्वास",
+      englishTerm: "Shvasa",
+      definition: "Dyspnea/Asthma - difficulty in breathing with wheezing",
+      category: "Kapha Disorders"
+    },
+    {
+      code: "SNP-101",
+      system: "siddha",
+      originalTerm: "வாத நோய்",
+      englishTerm: "Vatha Noi",
+      definition: "Wind-related disorders affecting nervous and musculoskeletal systems",
+      category: "Noi Nadal (Pathology)"
+    },
+    {
+      code: "SNP-515",
+      system: "siddha",
+      originalTerm: "காய்ச்சல்",
+      englishTerm: "Kaichal", 
+      definition: "Fever - elevated body temperature as immune response",
+      category: "Maruthuvam (General Medicine)"
+    },
+    {
+      code: "UHM-301",
+      system: "unani",
+      originalTerm: "حمیٰ",
+      englishTerm: "Humma",
+      definition: "Fever - pyrexia with constitutional symptoms", 
+      category: "Amraz-e-Amma (General Diseases)"
+    },
+    {
+      code: "UJD-629",
+      system: "unani",
+      originalTerm: "ورم مفاصل",
+      englishTerm: "Waram Mafasil",
+      definition: "Arthritis - inflammation of joints with pain and swelling",
+      category: "Joint Disorders"
+    }
+  ]
+
+  const queryLower = query.toLowerCase()
+  
+  return sampleData.filter(item => {
+    const matchesSystem = !system || item.system === system
+    const matchesQuery = 
+      item.code.toLowerCase().includes(queryLower) ||
+      item.englishTerm.toLowerCase().includes(queryLower) ||
+      item.definition.toLowerCase().includes(queryLower) ||
+      item.category.toLowerCase().includes(queryLower)
+    
+    return matchesSystem && matchesQuery
+  }).slice(0, 10)
 }
 
 // React hook for concept mappings
@@ -263,8 +348,31 @@ export function useStatistics() {
         const stats = await terminologyAPI.getStatistics()
         setStatistics(stats)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch statistics')
-        setStatistics(null)
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch statistics'
+        setError(errorMessage)
+        
+        // Provide sample statistics if backend is not available
+        if (errorMessage.includes('fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('ECONNREFUSED')) {
+          setError("Backend not connected - showing sample data")
+          setStatistics({
+            total_terms: 21,
+            mapped_terms: 15,
+            total_encounters: 42,
+            system_distribution: {
+              ayurveda: 10,
+              siddha: 6,
+              unani: 5
+            },
+            equivalence_distribution: {
+              equivalent: 8,
+              relatedto: 4,
+              wider: 2,
+              narrower: 1
+            }
+          })
+        } else {
+          setStatistics(null)
+        }
       } finally {
         setLoading(false)
       }

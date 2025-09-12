@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MagnifyingGlass, Leaf, Globe, BookOpen, Spinner } from '@phosphor-icons/react'
 import { useTerminologySearch, useStatistics, type NAMASTEConcept } from '@/services/terminologyAPI'
+import BackendStatusIndicator from '@/components/BackendStatusIndicator'
 
 export default function TerminologyExplorer() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -33,6 +34,35 @@ export default function TerminologyExplorer() {
           setAllTerminologies(initialTerms)
         } catch (error) {
           console.error('Failed to load initial terms:', error)
+          // Fallback to sample data for demonstration
+          const sampleTerms = [
+            {
+              code: "AAE-16",
+              system: "ayurveda",
+              originalTerm: "सन्धिगतवात",
+              englishTerm: "Sandhigatavata",
+              definition: "Osteoarthritis - degenerative joint disease characterized by pain and stiffness",
+              category: "Vata Disorders"
+            },
+            {
+              code: "SNP-101", 
+              system: "siddha",
+              originalTerm: "வாத நோய்",
+              englishTerm: "Vatha Noi",
+              definition: "Wind-related disorders affecting nervous and musculoskeletal systems",
+              category: "Noi Nadal (Pathology)"
+            },
+            {
+              code: "UHM-301",
+              system: "unani", 
+              originalTerm: "حمیٰ",
+              englishTerm: "Humma",
+              definition: "Fever - pyrexia with constitutional symptoms",
+              category: "Amraz-e-Amma (General Diseases)"
+            }
+          ].filter(term => selectedSystem === 'all' || term.system === selectedSystem)
+          
+          setAllTerminologies(sampleTerms)
         }
       }
       loadInitialTerms()
@@ -163,6 +193,8 @@ export default function TerminologyExplorer() {
             </div>
           </CardContent>
         </Card>
+
+        <BackendStatusIndicator />
       </div>
 
       {/* Results Panel */}
@@ -237,8 +269,19 @@ export default function TerminologyExplorer() {
               )}
 
               {searchError && (
-                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-                  <p className="text-sm text-destructive">{searchError}</p>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800 mb-2">
+                    {searchError.includes('sample data') ? '📋 Demo Mode: ' : '⚠️ '}{searchError}
+                  </p>
+                  {searchError.includes('sample data') && (
+                    <div className="text-xs text-blue-600 space-y-1">
+                      <div><strong>Try searching:</strong></div>
+                      <div>• "sandhi" → Sandhigatavata (AAE-16)</div>
+                      <div>• "fever" → Humma, Kaichal</div>
+                      <div>• "vata" → Multiple Vata disorders</div>
+                      <div>• "arthritis" → Joint-related conditions</div>
+                    </div>
+                  )}
                 </div>
               )}
 
