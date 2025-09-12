@@ -320,8 +320,16 @@ export function useConceptMappings(
         const mappingResults = await terminologyAPI.getConceptMappings(equivalence, system)
         setMappings(mappingResults)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch mappings')
-        setMappings([])
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch mappings'
+        setError(errorMessage)
+        
+        // If backend is not available, provide sample mappings for demonstration
+        if (errorMessage.includes('fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('ECONNREFUSED')) {
+          setError("Backend not connected - showing sample data")
+          setMappings(getSampleMappings(equivalence, system))
+        } else {
+          setMappings([])
+        }
       } finally {
         setLoading(false)
       }
@@ -331,6 +339,169 @@ export function useConceptMappings(
   }, [equivalence, system])
 
   return { mappings, loading, error, refetch: () => fetchMappings() }
+}
+
+// Sample mapping data for offline demonstration
+function getSampleMappings(equivalence?: string, system?: string): ConceptMapping[] {
+  const sampleMappings: ConceptMapping[] = [
+    {
+      namasteCode: "AAE-16",
+      namasteTerm: "Sandhigatavata", 
+      originalTerm: "सन्धिगतवात",
+      system: "ayurveda",
+      icd11Code: "FA3Z",
+      icd11Term: "Osteoarthritis",
+      equivalence: "equivalent",
+      confidence: 0.95,
+      mappingType: "direct",
+      clinicalNotes: "Direct mapping - Sandhigatavata corresponds precisely to ICD-11 osteoarthritis with similar pathophysiology"
+    },
+    {
+      namasteCode: "AAE-23",
+      namasteTerm: "Amavata",
+      originalTerm: "अमवात", 
+      system: "ayurveda",
+      icd11Code: "FA2Z",
+      icd11Term: "Rheumatoid arthritis",
+      equivalence: "equivalent",
+      confidence: 0.92,
+      mappingType: "direct",
+      clinicalNotes: "Amavata matches rheumatoid arthritis profile with inflammatory joint involvement and systemic effects"
+    },
+    {
+      namasteCode: "APE-12",
+      namasteTerm: "Amlapitta",
+      originalTerm: "अम्लपित्त",
+      system: "ayurveda", 
+      icd11Code: "DA00",
+      icd11Term: "Gastro-oesophageal reflux disease",
+      equivalence: "equivalent",
+      confidence: 0.85,
+      mappingType: "direct",
+      clinicalNotes: "Amlapitta corresponds to GERD with acid reflux and hyperacidity symptoms"
+    },
+    {
+      namasteCode: "AKE-18",
+      namasteTerm: "Shvasa",
+      originalTerm: "श्वास",
+      system: "ayurveda",
+      icd11Code: "CA20", 
+      icd11Term: "Asthma",
+      equivalence: "equivalent",
+      confidence: 0.87,
+      mappingType: "direct",
+      clinicalNotes: "Shvasa maps to asthma with similar respiratory obstruction and wheezing patterns"
+    },
+    {
+      namasteCode: "SGM-515", 
+      namasteTerm: "Kaichal",
+      originalTerm: "காய்ச்சல்",
+      system: "siddha",
+      icd11Code: "1C62",
+      icd11Term: "Fever, unspecified",
+      equivalence: "equivalent", 
+      confidence: 0.94,
+      mappingType: "direct",
+      clinicalNotes: "Kaichal directly corresponds to fever with elevated temperature and constitutional symptoms"
+    },
+    {
+      namasteCode: "SNP-101",
+      namasteTerm: "Vatha Noi", 
+      originalTerm: "வாத நோய்",
+      system: "siddha",
+      icd11Code: "FA3Z",
+      icd11Term: "Osteoarthritis",
+      equivalence: "relatedto",
+      confidence: 0.75,
+      mappingType: "contextual",
+      clinicalNotes: "Vatha Noi represents broader wind-related musculoskeletal disorders; osteoarthritis is a common manifestation"
+    },
+    {
+      namasteCode: "UGA-301",
+      namasteTerm: "Humma",
+      originalTerm: "حمیٰ",
+      system: "unani",
+      icd11Code: "1C62", 
+      icd11Term: "Fever, unspecified",
+      equivalence: "equivalent",
+      confidence: 0.95,
+      mappingType: "direct",
+      clinicalNotes: "Humma directly corresponds to fever with similar presentation of elevated temperature and systemic symptoms"
+    },
+    {
+      namasteCode: "UJD-629",
+      namasteTerm: "Waram Mafasil",
+      originalTerm: "ورم مفاصل", 
+      system: "unani",
+      icd11Code: "FA2Z",
+      icd11Term: "Rheumatoid arthritis",
+      equivalence: "relatedto",
+      confidence: 0.82,
+      mappingType: "contextual", 
+      clinicalNotes: "Waram Mafasil encompasses various arthritides; rheumatoid arthritis represents prototypical inflammatory joint disease"
+    },
+    {
+      namasteCode: "AKE-61",
+      namasteTerm: "Prameha", 
+      originalTerm: "प्रमेह",
+      system: "ayurveda",
+      icd11Code: "5A11",
+      icd11Term: "Type 2 diabetes mellitus",
+      equivalence: "wider",
+      confidence: 0.78,
+      mappingType: "contextual",
+      clinicalNotes: "Prameha encompasses broader urinary disorders; Type 2 diabetes represents the most common modern equivalent"
+    },
+    {
+      namasteCode: "AAE-89",
+      namasteTerm: "Gridhrasi",
+      originalTerm: "गृध्रसी",
+      system: "ayurveda",
+      icd11Code: null,
+      icd11Term: null,
+      equivalence: "unmatched", 
+      confidence: 0.0,
+      mappingType: "unmapped",
+      clinicalNotes: "Gridhrasi represents complex traditional understanding of sciatic pain requiring specific anatomical context for precise ICD-11 mapping"
+    },
+    {
+      namasteCode: "SGM-628",
+      namasteTerm: "Irumal",
+      originalTerm: "இருமல்",
+      system: "siddha",
+      icd11Code: null,
+      icd11Term: null,
+      equivalence: "unmatched",
+      confidence: 0.0, 
+      mappingType: "unmapped",
+      clinicalNotes: "Irumal (cough) requires more specific ICD-11 classification based on underlying etiology"
+    },
+    {
+      namasteCode: "SNP-407",
+      namasteTerm: "Mukkutra Noi",
+      originalTerm: "முக்குற்ற நோய்",
+      system: "siddha",
+      icd11Code: null,
+      icd11Term: null,
+      equivalence: "unmatched",
+      confidence: 0.0,
+      mappingType: "unmapped", 
+      clinicalNotes: "Mukkutra Noi represents tri-dosha vitiation - a holistic traditional concept without direct biomedical equivalent"
+    }
+  ]
+
+  // Apply filters
+  let filtered = sampleMappings
+
+  if (equivalence && equivalence !== 'all') {
+    filtered = filtered.filter(mapping => mapping.equivalence === equivalence)
+  }
+
+  if (system) {
+    filtered = filtered.filter(mapping => mapping.system === system)
+  }
+
+  return filtered
 }
 
 // React hook for statistics
@@ -351,23 +522,24 @@ export function useStatistics() {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch statistics'
         setError(errorMessage)
         
-        // Provide sample statistics if backend is not available
+        // Provide realistic sample statistics based on the mapping data
         if (errorMessage.includes('fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('ECONNREFUSED')) {
           setError("Backend not connected - showing sample data")
           setStatistics({
-            total_terms: 21,
-            mapped_terms: 15,
-            total_encounters: 42,
+            total_terms: 31,
+            mapped_terms: 21,
+            total_encounters: 156,
             system_distribution: {
-              ayurveda: 10,
-              siddha: 6,
-              unani: 5
+              ayurveda: 15,
+              siddha: 8,
+              unani: 8
             },
             equivalence_distribution: {
-              equivalent: 8,
-              relatedto: 4,
-              wider: 2,
-              narrower: 1
+              equivalent: 7,
+              relatedto: 2,
+              wider: 1,
+              narrower: 0,
+              unmatched: 3
             }
           })
         } else {

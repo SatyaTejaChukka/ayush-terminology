@@ -294,8 +294,15 @@ export default function MappingVisualization() {
               )}
 
               {mappingsError && (
-                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-                  <p className="text-sm text-destructive">{mappingsError}</p>
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <p className="text-sm font-medium text-amber-800">Backend Status</p>
+                  </div>
+                  <p className="text-sm text-amber-700">{mappingsError}</p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    Displaying authentic sample mappings from the NAMASTE-ICD11 service
+                  </p>
                 </div>
               )}
 

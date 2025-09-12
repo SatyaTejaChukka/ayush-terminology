@@ -4,11 +4,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { MagnifyingGlass, Globe, BookOpen, Beaker, ArrowRight, ExclamationTriangle } from '@phosphor-icons/react'
+import { MagnifyingGlass, Globe, BookOpen, Beaker, ArrowRight, ExclamationTriangle, Server } from '@phosphor-icons/react'
 import TerminologyExplorer from '@/components/TerminologyExplorer'
 import MappingVisualization from '@/components/MappingVisualization'
 import ClinicalDemo from '@/components/ClinicalDemo'
 import DocumentationHub from '@/components/DocumentationHub'
+import BackendStatusIndicator from '@/components/BackendStatusIndicator'
 
 function App() {
   const [activeTab, setActiveTab] = useState('explorer')
@@ -64,7 +65,15 @@ function App() {
                 Browse and search through traditional medicine diagnostic codes from Ayurveda, Siddha, and Unani systems
               </p>
             </div>
-            <TerminologyExplorer />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="lg:col-span-1">
+                <BackendStatusIndicator />
+              </div>
+              <div className="lg:col-span-3">
+                <TerminologyExplorer />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="mapping" className="space-y-6">
@@ -74,7 +83,15 @@ function App() {
                 Explore the relationships between traditional medicine terms and international health standards
               </p>
             </div>
-            <MappingVisualization />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="lg:col-span-1">
+                <BackendStatusIndicator />
+              </div>
+              <div className="lg:col-span-3">
+                <MappingVisualization />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="demo" className="space-y-6">

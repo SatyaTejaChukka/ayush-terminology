@@ -1,21 +1,25 @@
 /**
- * Backend Health Check and Connection Test
- * Utility to verify backend connectivity and display status
+ * Backend Health Checker for NAMASTE Terminology Service
+ * Monitors connection status and service health
  */
 
-import { terminologyAPI } from '@/services/terminologyAPI'
+const BACKEND_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://api.namaste-icd11.health.gov.in' 
+  : 'http://localhost:8000'
 
 export interface BackendStatus {
   isConnected: boolean
   isHealthy: boolean
-  version: string
   latency: number
+  version: string
   error?: string
+  lastChecked: Date
 }
 
 export class BackendHealthChecker {
   private static instance: BackendHealthChecker
-  private lastCheck: BackendStatus | null = null
+  private status: BackendStatus | null = null
+  private listeners: ((status: BackendStatus | null) => void)[] = []
   private checkInterval: number | null = null
 
   static getInstance(): BackendHealthChecker {
@@ -26,41 +30,73 @@ export class BackendHealthChecker {
   }
 
   async checkHealth(): Promise<BackendStatus> {
-    const startTime = Date.now()
+    const startTime = performance.now()
     
     try {
-      const response = await terminologyAPI.healthCheck()
-      const latency = Date.now() - startTime
-      
-      this.lastCheck = {
-        isConnected: true,
-        isHealthy: response.status === 'healthy',
-        version: response.version,
-        latency,
+      const response = await fetch(`${BACKEND_URL}/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Add timeout
+        signal: AbortSignal.timeout(5000)
+      })
+
+      const latency = Math.round(performance.now() - startTime)
+
+      if (response.ok) {
+        const healthData = await response.json()
+        
+        this.status = {
+          isConnected: true,
+          isHealthy: healthData.status === 'healthy',
+          latency,
+          version: healthData.version || '1.0.0',
+          lastChecked: new Date()
+        }
+      } else {
+        this.status = {
+          isConnected: true,
+          isHealthy: false,
+          latency,
+          version: 'unknown',
+          error: `HTTP ${response.status}`,
+          lastChecked: new Date()
+        }
       }
-      
-      return this.lastCheck
-      
     } catch (error) {
-      const latency = Date.now() - startTime
+      const latency = Math.round(performance.now() - startTime)
       
-      this.lastCheck = {
+      this.status = {
         isConnected: false,
         isHealthy: false,
-        version: 'unknown',
         latency,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        version: 'unknown',
+        error: error instanceof Error ? error.message : 'Connection failed',
+        lastChecked: new Date()
       }
-      
-      return this.lastCheck
+    }
+
+    this.notifyListeners()
+    return this.status
+  }
+
+  subscribe(listener: (status: BackendStatus | null) => void): () => void {
+    this.listeners.push(listener)
+    
+    // Immediately notify with current status
+    listener(this.status)
+    
+    // Return unsubscribe function
+    return () => {
+      const index = this.listeners.indexOf(listener)
+      if (index > -1) {
+        this.listeners.splice(index, 1)
+      }
     }
   }
 
-  getLastStatus(): BackendStatus | null {
-    return this.lastCheck
-  }
-
-  startMonitoring(intervalMs: number = 30000) {
+  startPeriodicCheck(intervalMs: number = 30000): void {
     if (this.checkInterval) {
       clearInterval(this.checkInterval)
     }
@@ -68,66 +104,70 @@ export class BackendHealthChecker {
     // Initial check
     this.checkHealth()
 
-    // Periodic checks
+    // Set up periodic checks
     this.checkInterval = window.setInterval(() => {
       this.checkHealth()
     }, intervalMs)
   }
 
-  stopMonitoring() {
+  stopPeriodicCheck(): void {
     if (this.checkInterval) {
       clearInterval(this.checkInterval)
       this.checkInterval = null
     }
   }
 
-  async waitForBackend(timeoutMs: number = 30000): Promise<boolean> {
-    const startTime = Date.now()
-    
-    while (Date.now() - startTime < timeoutMs) {
-      const status = await this.checkHealth()
-      
-      if (status.isConnected && status.isHealthy) {
-        return true
-      }
-      
-      // Wait 1 second before next attempt
-      await new Promise(resolve => setTimeout(resolve, 1000))
-    }
-    
-    return false
+  private notifyListeners(): void {
+    this.listeners.forEach(listener => listener(this.status))
+  }
+
+  getStatus(): BackendStatus | null {
+    return this.status
   }
 }
 
-// React hook for backend status monitoring
+// React hook for backend status
 import { useState, useEffect } from 'react'
 
-export function useBackendStatus(enableMonitoring: boolean = true) {
+export function useBackendStatus(enablePeriodicCheck: boolean = false): {
+  status: BackendStatus | null
+  loading: boolean
+  checkNow: () => Promise<void>
+} {
   const [status, setStatus] = useState<BackendStatus | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!enableMonitoring) return
-
     const checker = BackendHealthChecker.getInstance()
     
-    const checkStatus = async () => {
-      setLoading(true)
-      const newStatus = await checker.checkHealth()
+    // Subscribe to status updates
+    const unsubscribe = checker.subscribe((newStatus) => {
       setStatus(newStatus)
       setLoading(false)
+    })
+
+    // Start periodic checking if enabled
+    if (enablePeriodicCheck) {
+      checker.startPeriodicCheck(30000) // Check every 30 seconds
+    } else {
+      // Just do an initial check
+      checker.checkHealth().finally(() => setLoading(false))
     }
-
-    // Initial check
-    checkStatus()
-
-    // Start monitoring with updates every 30 seconds
-    const interval = setInterval(checkStatus, 30000)
 
     return () => {
-      clearInterval(interval)
+      unsubscribe()
+      if (enablePeriodicCheck) {
+        checker.stopPeriodicCheck()
+      }
     }
-  }, [enableMonitoring])
+  }, [enablePeriodicCheck])
 
-  return { status, loading }
+  const checkNow = async () => {
+    setLoading(true)
+    const checker = BackendHealthChecker.getInstance()
+    await checker.checkHealth()
+    setLoading(false)
+  }
+
+  return { status, loading, checkNow }
 }
