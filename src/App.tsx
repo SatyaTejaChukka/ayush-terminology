@@ -84,14 +84,7 @@ function App() {
               </p>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              <div className="lg:col-span-1">
-                <BackendStatusIndicator />
-              </div>
-              <div className="lg:col-span-3">
-                <MappingVisualization />
-              </div>
-            </div>
+            <MappingVisualization />
           </TabsContent>
 
           <TabsContent value="demo" className="space-y-6">
