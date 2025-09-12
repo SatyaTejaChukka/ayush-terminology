@@ -483,7 +483,7 @@ export default function DocumentationHub() {
                     <h4 className="font-semibold">Terminology Lookup</h4>
                     <Badge variant="outline">GET</Badge>
                   </div>
-                  <code className="text-sm bg-muted p-2 rounded block mb-2">/lookup?q={searchTerm}&system={ayurveda|siddha|unani}</code>
+                  <code className="text-sm bg-muted p-2 rounded block mb-2">/lookup?q=&#123;searchTerm&#125;&system=&#123;ayurveda|siddha|unani&#125;</code>
                   <p className="text-sm text-muted-foreground">Real-time search for NAMASTE concepts with auto-completion support</p>
                 </div>
 
