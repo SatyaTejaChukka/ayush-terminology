@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MagnifyingGlass, Leaf, Globe, BookOpen, Spinner } from '@phosphor-icons/react'
 import { lookupConcepts, useStatistics, type NAMASTEConcept } from '@/services/terminologyAPI'
+import BackendStatusIndicator from '@/components/BackendStatusIndicator'
 
 export default function TerminologyExplorer() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -102,9 +103,11 @@ export default function TerminologyExplorer() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Search and Filter Panel */}
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      {/* Backend Status and Search Panel */}
       <div className="lg:col-span-1 space-y-4">
+        <BackendStatusIndicator />
+        
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -194,7 +197,7 @@ export default function TerminologyExplorer() {
       </div>
 
       {/* Results Panel */}
-      <div className="lg:col-span-2 space-y-4">
+      <div className="lg:col-span-3 space-y-4">
         {selectedTerm ? (
           <Card>
             <CardHeader>

@@ -95,16 +95,22 @@ class TerminologyAPI {
       ...options.headers,
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    })
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      })
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      return response.json()
+    } catch (error) {
+      // Log error for debugging but don't expose internal details
+      console.error(`API Request failed for ${endpoint}:`, error)
+      throw new Error(`Failed to connect to backend service`)
     }
-
-    return response.json()
   }
 
   // Lookup endpoint

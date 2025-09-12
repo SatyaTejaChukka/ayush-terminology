@@ -9,7 +9,7 @@ import TerminologyExplorer from '@/components/TerminologyExplorer'
 import MappingVisualization from '@/components/MappingVisualization'
 import ClinicalDemo from '@/components/ClinicalDemo'
 import DocumentationHub from '@/components/DocumentationHub'
-import BackendStatusIndicator from '@/components/BackendStatusIndicator'
+
 
 function App() {
   const [activeTab, setActiveTab] = useState('explorer')
@@ -66,14 +66,7 @@ function App() {
               </p>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              <div className="lg:col-span-1">
-                <BackendStatusIndicator />
-              </div>
-              <div className="lg:col-span-3">
-                <TerminologyExplorer />
-              </div>
-            </div>
+            <TerminologyExplorer />
           </TabsContent>
 
           <TabsContent value="mapping" className="space-y-6">

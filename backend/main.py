@@ -1,232 +1,399 @@
 """
-NAMASTE-ICD11 Terminology Service
-A FastAPI-based microservice for traditional medicine terminology integration
-
-This service provides:
-- FHIR-compliant terminology lookup and translation
-- NAMASTE to ICD-11 mapping
-- Clinical encounter data ingestion with dual coding
-- OAuth 2.0/ABHA integration for authentication
+NAMASTE-ICD11 Terminology Service Backend
+A FHIR-compliant FastAPI microservice for traditional medicine terminology integration
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query, status
+from fastapi import FastAPI, HTTPException, Depends, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from contextlib import asynccontextmanager
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+from typing import List, Optional, Dict, Any
 import uvicorn
-from typing import List, Optional
 import logging
+from datetime import datetime
 
-from models import (
-    NAMASTEConcept, ConceptMapping, TranslateRequest, TranslateResponse, 
-    FHIRBundle, Statistics, HealthResponse
+from database import get_db, engine
+from models import NAMASTECode, ICD11Code, ConceptMapping, EncounterRecord
+import models
+from schemas import (
+    NAMASTEConceptResponse, 
+    LookupResponse, 
+    TranslateRequest, 
+    TranslateResponse,
+    StatisticsResponse,
+    EncounterRequest,
+    HealthResponse
 )
-from database import get_database_connection, init_database
-from services.terminology_service import TerminologyService
-from services.mapping_service import MappingService
-from services.statistics_service import StatisticsService
+from data_loader import initialize_database
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize services
-terminology_service = TerminologyService()
-mapping_service = MappingService()
-statistics_service = StatisticsService()
-security = HTTPBearer()
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Initialize database and services on startup"""
-    logger.info("Initializing NAMASTE Terminology Service...")
-    
-    # Initialize database schema and sample data
-    await init_database()
-    
-    # Load terminology data
-    await terminology_service.initialize()
-    await mapping_service.initialize()
-    
-    logger.info("Service initialization complete")
-    yield
-    
-    logger.info("Shutting down NAMASTE Terminology Service...")
-
+# Create FastAPI app
 app = FastAPI(
     title="NAMASTE-ICD11 Terminology Service",
     description="FHIR-compliant microservice for traditional medicine terminology integration",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc",
-    lifespan=lifespan
+    redoc_url="/redoc"
 )
 
-# Configure CORS for frontend integration
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "https://*.github.dev"],
+    allow_origins=["*"],  # In production, specify allowed origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Authentication dependency (simplified for demo)
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """
-    Validate ABHA JWT token (simplified for demonstration)
-    In production, this would validate against ABDM's JWKS endpoint
-    """
-    token = credentials.credentials
-    
-    # For demo purposes, accept any token starting with "demo_"
-    if token.startswith("demo_"):
-        return {"user_id": "demo_user", "scopes": ["terminology:read", "encounter:write"]}
-    
-    # In production, implement full JWT validation here
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid authentication credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+# Initialize database on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database with terminology data on startup"""
+    try:
+        logger.info("Initializing database...")
+        models.Base.metadata.create_all(bind=engine)
+        
+        # Initialize with real terminology data
+        db = next(get_db())
+        await initialize_database(db)
+        logger.info("Database initialization completed successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        raise
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
-    """Health check endpoint for service monitoring"""
+    """Health check endpoint"""
     return HealthResponse(
         status="healthy",
-        service="NAMASTE-ICD11 Terminology Service",
-        version="1.0.0"
+        timestamp=datetime.utcnow(),
+        version="1.0.0",
+        database_status="connected"
     )
 
-@app.get("/lookup", response_model=List[NAMASTEConcept])
-async def lookup_terminology(
-    q: str = Query(..., description="Search query string"),
-    system: Optional[str] = Query(None, description="Filter by AYUSH system (ayurveda, siddha, unani)"),
-    limit: int = Query(10, description="Maximum number of results", ge=1, le=100)
+@app.get("/lookup", response_model=LookupResponse)
+async def lookup_concepts(
+    q: str = Query(..., description="Search query"),
+    system: Optional[str] = Query(None, description="Filter by AYUSH system"),
+    limit: int = Query(10, description="Maximum results to return"),
+    db: Session = Depends(get_db)
 ):
     """
-    Fast auto-complete search for NAMASTE terminology concepts
-    Optimized for real-time UI integration
+    Search NAMASTE terminology concepts with auto-complete functionality
+    Supports full-text search across codes, display terms, and definitions
     """
     try:
-        results = await terminology_service.search_concepts(q, system, limit)
-        return results
+        query = db.query(NAMASTECode)
+        
+        # Apply search filter
+        if q:
+            search_filter = (
+                NAMASTECode.display.ilike(f"%{q}%") |
+                NAMASTECode.original_term.ilike(f"%{q}%") |
+                NAMASTECode.definition.ilike(f"%{q}%") |
+                NAMASTECode.code.ilike(f"%{q}%")
+            )
+            query = query.filter(search_filter)
+        
+        # Apply system filter
+        if system and system in ['ayurveda', 'siddha', 'unani']:
+            query = query.filter(NAMASTECode.system == system)
+        
+        # Apply limit and execute
+        concepts = query.limit(limit).all()
+        total_count = query.count()
+        
+        # Convert to response format
+        concept_responses = [
+            NAMASTEConceptResponse(
+                code=concept.code,
+                display=concept.display,
+                originalTerm=concept.original_term,
+                definition=concept.definition,
+                system=concept.system
+            )
+            for concept in concepts
+        ]
+        
+        return LookupResponse(
+            concepts=concept_responses,
+            totalCount=total_count
+        )
+        
     except Exception as e:
-        logger.error(f"Search error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        logger.error(f"Lookup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.post("/ConceptMap/$translate", response_model=TranslateResponse)
 async def translate_concept(
     request: TranslateRequest,
-    current_user: dict = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """
-    FHIR $translate operation
-    Translates NAMASTE codes to ICD-11 equivalents based on ConceptMap
+    FHIR $translate operation for mapping NAMASTE codes to ICD-11
+    Implements standard FHIR ConceptMap translation semantics
     """
     try:
-        translation = await mapping_service.translate_concept(
-            request.system, request.code, request.target
-        )
-        return translation
-    except Exception as e:
-        logger.error(f"Translation error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
-
-@app.get("/mappings", response_model=List[ConceptMapping])
-async def get_concept_mappings(
-    equivalence: Optional[str] = Query(None, description="Filter by equivalence type"),
-    system: Optional[str] = Query(None, description="Filter by AYUSH system"),
-    limit: int = Query(50, description="Maximum number of results", ge=1, le=200)
-):
-    """
-    Retrieve concept mappings between NAMASTE and ICD-11
-    Supports filtering by equivalence type and AYUSH system
-    """
-    try:
-        mappings = await mapping_service.get_mappings(equivalence, system, limit)
-        return mappings
-    except Exception as e:
-        logger.error(f"Mappings retrieval error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve mappings: {str(e)}")
-
-@app.post("/Encounter")
-async def submit_encounter(
-    bundle: FHIRBundle,
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Submit clinical encounter with automatic dual-coding
-    Processes FHIR Bundle and adds ICD-11 mappings to NAMASTE diagnoses
-    """
-    try:
-        # Validate FHIR Bundle structure
-        if bundle.resourceType != "Bundle" or bundle.type != "transaction":
+        # Extract parameters from FHIR Parameters resource
+        system = None
+        code = None
+        target = None
+        
+        for param in request.parameter:
+            if param.name == "system":
+                system = param.valueUri
+            elif param.name == "code":
+                code = param.valueCode
+            elif param.name == "target":
+                target = param.valueUri
+        
+        if not all([system, code, target]):
             raise HTTPException(
                 status_code=400, 
-                detail="Invalid FHIR Bundle: must be transaction type"
+                detail="Missing required parameters: system, code, target"
             )
         
-        # Process bundle and add dual coding
-        processed_bundle = await mapping_service.process_encounter_bundle(bundle)
+        # Find the mapping
+        mapping = db.query(ConceptMapping).filter(
+            ConceptMapping.namaste_code == code
+        ).first()
         
-        # In a production system, persist to database here
-        # For demo, we'll just return the processed bundle
+        if not mapping:
+            return TranslateResponse(
+                result=False,
+                message=f"No mapping found for code {code}"
+            )
+        
+        # Get the NAMASTE concept details
+        namaste_concept = db.query(NAMASTECode).filter(
+            NAMASTECode.code == code
+        ).first()
+        
+        if not namaste_concept:
+            raise HTTPException(status_code=404, detail=f"NAMASTE concept {code} not found")
+        
+        # Get ICD-11 concept details if mapped
+        icd11_concept = None
+        if mapping.icd11_code:
+            icd11_concept = db.query(ICD11Code).filter(
+                ICD11Code.code == mapping.icd11_code
+            ).first()
+        
+        # Build response
+        match_data = {
+            "namasteCode": mapping.namaste_code,
+            "namasteTerm": namaste_concept.display,
+            "originalTerm": namaste_concept.original_term,
+            "system": namaste_concept.system,
+            "icd11Code": mapping.icd11_code,
+            "icd11Term": icd11_concept.title if icd11_concept else None,
+            "equivalence": mapping.equivalence,
+            "confidence": mapping.confidence,
+            "mappingType": mapping.mapping_type,
+            "clinicalNotes": mapping.clinical_notes
+        }
+        
+        return TranslateResponse(
+            result=True,
+            message=f"Translation found for {code}",
+            match=[match_data]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Translation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Translation error: {str(e)}")
+
+@app.post("/Encounter")
+async def ingest_encounter(
+    request: EncounterRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    FHIR Bundle ingestion endpoint for dual-coded clinical encounters
+    Accepts FHIR Bundle, performs dual coding, and persists data
+    """
+    try:
+        # Extract encounter and condition data from FHIR Bundle
+        encounter_id = None
+        patient_id = None
+        namaste_codes = []
+        
+        for entry in request.entry:
+            resource = entry.resource
+            
+            if resource["resourceType"] == "Encounter":
+                encounter_id = resource.get("id")
+                if "subject" in resource:
+                    patient_id = resource["subject"]["reference"].split("/")[-1]
+            
+            elif resource["resourceType"] == "Condition":
+                if "code" in resource and "coding" in resource["code"]:
+                    for coding in resource["code"]["coding"]:
+                        if "namstp.ayush.gov.in" in coding.get("system", ""):
+                            namaste_codes.append(coding["code"])
+        
+        if not all([encounter_id, patient_id, namaste_codes]):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid FHIR Bundle: missing required encounter data"
+            )
+        
+        # Process each NAMASTE code and add dual coding
+        processed_entries = []
+        
+        for entry in request.entry:
+            resource = entry.resource
+            
+            if resource["resourceType"] == "Condition":
+                # Find mappings for NAMASTE codes in this condition
+                for coding in resource["code"]["coding"]:
+                    if "namstp.ayush.gov.in" in coding.get("system", ""):
+                        namaste_code = coding["code"]
+                        
+                        # Look up ICD-11 mapping
+                        mapping = db.query(ConceptMapping).filter(
+                            ConceptMapping.namaste_code == namaste_code
+                        ).first()
+                        
+                        if mapping and mapping.icd11_code:
+                            # Add ICD-11 coding to the condition
+                            icd11_coding = {
+                                "system": "http://id.who.int/icd/release/11/mms",
+                                "code": mapping.icd11_code,
+                                "display": mapping.icd11_term
+                            }
+                            resource["code"]["coding"].append(icd11_coding)
+            
+            processed_entries.append(entry)
+        
+        # Store encounter record
+        encounter_record = EncounterRecord(
+            encounter_id=encounter_id,
+            patient_id=patient_id,
+            namaste_codes=",".join(namaste_codes),
+            fhir_bundle=request.dict(),
+            created_at=datetime.utcnow()
+        )
+        
+        db.add(encounter_record)
+        db.commit()
+        
+        # Return FHIR Bundle transaction response
+        response_entries = []
+        for i, entry in enumerate(processed_entries):
+            response_entries.append({
+                "response": {
+                    "status": "201 Created",
+                    "location": f"{entry.resource['resourceType']}/{entry.resource.get('id', f'temp-{i}')}"
+                }
+            })
         
         return {
             "resourceType": "Bundle",
             "type": "transaction-response",
-            "timestamp": bundle.timestamp,
-            "total": len(processed_bundle.entry),
-            "entry": processed_bundle.entry
+            "entry": response_entries
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Encounter submission error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Encounter submission failed: {str(e)}")
+        logger.error(f"Encounter ingestion failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Encounter processing error: {str(e)}")
 
-@app.get("/statistics", response_model=Statistics)
-async def get_service_statistics():
+@app.get("/statistics", response_model=StatisticsResponse)
+async def get_statistics(db: Session = Depends(get_db)):
     """
-    Retrieve service statistics including mapping coverage and usage metrics
+    Get comprehensive statistics about the terminology database
     """
     try:
-        stats = await statistics_service.get_comprehensive_statistics()
-        return stats
+        # Count total terms by system
+        total_terms = db.query(NAMASTECode).count()
+        ayurveda_count = db.query(NAMASTECode).filter(NAMASTECode.system == 'ayurveda').count()
+        siddha_count = db.query(NAMASTECode).filter(NAMASTECode.system == 'siddha').count()
+        unani_count = db.query(NAMASTECode).filter(NAMASTECode.system == 'unani').count()
+        
+        # Count encounters
+        total_encounters = db.query(EncounterRecord).count()
+        
+        # Count mappings by equivalence type
+        equiv_counts = {}
+        for equiv_type in ['equivalent', 'relatedto', 'wider', 'narrower', 'unmatched']:
+            count = db.query(ConceptMapping).filter(
+                ConceptMapping.equivalence == equiv_type
+            ).count()
+            equiv_counts[equiv_type] = count
+        
+        return StatisticsResponse(
+            total_terms=total_terms,
+            total_encounters=total_encounters,
+            system_distribution={
+                "ayurveda": ayurveda_count,
+                "siddha": siddha_count,
+                "unani": unani_count
+            },
+            equivalence_distribution=equiv_counts
+        )
+        
     except Exception as e:
-        logger.error(f"Statistics error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve statistics: {str(e)}")
+        logger.error(f"Statistics retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Statistics error: {str(e)}")
 
-@app.get("/CodeSystem/NAMASTE")
-async def get_namaste_codesystem():
+@app.get("/mappings/{namaste_code}")
+async def get_concept_mapping(namaste_code: str, db: Session = Depends(get_db)):
     """
-    FHIR CodeSystem resource for NAMASTE terminologies
+    Get detailed mapping information for a specific NAMASTE code
     """
     try:
-        codesystem = await terminology_service.get_fhir_codesystem()
-        return codesystem
+        mapping = db.query(ConceptMapping).filter(
+            ConceptMapping.namaste_code == namaste_code
+        ).first()
+        
+        if not mapping:
+            raise HTTPException(status_code=404, detail=f"No mapping found for {namaste_code}")
+        
+        # Get full concept details
+        namaste_concept = db.query(NAMASTECode).filter(
+            NAMASTECode.code == namaste_code
+        ).first()
+        
+        icd11_concept = None
+        if mapping.icd11_code:
+            icd11_concept = db.query(ICD11Code).filter(
+                ICD11Code.code == mapping.icd11_code
+            ).first()
+        
+        return {
+            "namaste": {
+                "code": namaste_concept.code,
+                "display": namaste_concept.display,
+                "originalTerm": namaste_concept.original_term,
+                "definition": namaste_concept.definition,
+                "system": namaste_concept.system
+            },
+            "icd11": {
+                "code": icd11_concept.code if icd11_concept else None,
+                "title": icd11_concept.title if icd11_concept else None,
+                "definition": icd11_concept.definition if icd11_concept else None
+            } if icd11_concept else None,
+            "mapping": {
+                "equivalence": mapping.equivalence,
+                "confidence": mapping.confidence,
+                "mappingType": mapping.mapping_type,
+                "clinicalNotes": mapping.clinical_notes
+            }
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"CodeSystem error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve CodeSystem")
-
-@app.get("/ConceptMap/namaste-to-icd11")
-async def get_concept_map():
-    """
-    FHIR ConceptMap resource for NAMASTE to ICD-11 mappings
-    """
-    try:
-        concept_map = await mapping_service.get_fhir_conceptmap()
-        return concept_map
-    except Exception as e:
-        logger.error(f"ConceptMap error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve ConceptMap")
+        logger.error(f"Mapping retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Mapping error: {str(e)}")
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run(app, host="0.0.0.0", port=8000)
