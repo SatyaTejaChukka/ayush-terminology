@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,8 +16,11 @@ import {
   Download,
   Stethoscope,
   Globe,
-  FileText
+  FileText,
+  Spinner
 } from '@phosphor-icons/react'
+import { useTerminologySearch, terminologyAPI, type NAMASTEConcept } from '@/services/terminologyAPI'
+import { toast } from 'sonner'
 
 // Sample patient and clinical data
 const samplePatient = {
@@ -39,96 +42,95 @@ const sampleTerminologies = [
 export default function ClinicalDemo() {
   const [currentStep, setCurrentStep] = useState(1)
   const [selectedDiagnosis, setSelectedDiagnosis] = useState('')
+  const [selectedTerm, setSelectedTerm] = useState<NAMASTEConcept | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [clinicalNotes, setClinicalNotes] = useState('')
   const [dualCodedRecord, setDualCodedRecord] = useState<any>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const filteredTerminologies = sampleTerminologies.filter(term =>
-    term.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    term.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    term.definition.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Use real API for terminology search
+  const { results: searchResults, loading: searchLoading } = useTerminologySearch(searchTerm)
 
-  const handleDiagnosisSelect = (diagnosis: typeof sampleTerminologies[0]) => {
+  const filteredTerminologies = searchTerm.trim() ? searchResults : []
+
+  const handleDiagnosisSelect = (diagnosis: NAMASTEConcept) => {
     setSelectedDiagnosis(diagnosis.code)
-    setSearchTerm(diagnosis.term)
+    setSelectedTerm(diagnosis)
+    setSearchTerm(diagnosis.englishTerm)
   }
 
-  const handleSubmitEncounter = () => {
-    const selectedTerm = sampleTerminologies.find(t => t.code === selectedDiagnosis)
+  const handleSubmitEncounter = async () => {
     if (!selectedTerm) return
-
-    // Simulate dual coding process
-    const mappings: { [key: string]: { icd11Code: string; icd11Term: string; equivalence: string } } = {
-      'AAE-16': { icd11Code: 'FA20', icd11Term: 'Osteoarthritis', equivalence: 'equivalent' },
-      'AST-23': { icd11Code: 'DA60', icd11Term: 'Gastro-oesophageal reflux disease', equivalence: 'relatedto' },
-      'SUC-45': { icd11Code: 'FA20.0&XK8G', icd11Term: 'Rheumatoid arthritis of multiple sites', equivalence: 'wider' },
-      'UNI-12': { icd11Code: 'MG30', icd11Term: 'Joint pain', equivalence: 'equivalent' },
-      'AYU-78': { icd11Code: 'MD12', icd11Term: 'Cough', equivalence: 'equivalent' }
-    }
-
-    const mapping = mappings[selectedDiagnosis]
     
-    const record = {
-      resourceType: 'Bundle',
-      type: 'transaction',
-      timestamp: new Date().toISOString(),
-      entry: [
-        {
-          resource: {
-            resourceType: 'Patient',
-            id: samplePatient.id,
-            name: [{ text: samplePatient.name }],
-            gender: samplePatient.gender.toLowerCase(),
-            birthDate: '1979-03-15'
-          }
-        },
-        {
-          resource: {
-            resourceType: 'Encounter',
-            id: `encounter-${Date.now()}`,
-            status: 'finished',
-            class: { code: 'AMB', display: 'ambulatory' },
-            subject: { reference: `Patient/${samplePatient.id}` },
-            period: {
-              start: new Date().toISOString(),
-              end: new Date().toISOString()
+    setIsSubmitting(true)
+    
+    try {
+      // Create FHIR Bundle
+      const bundle = {
+        resourceType: 'Bundle' as const,
+        type: 'transaction' as const,
+        timestamp: new Date().toISOString(),
+        entry: [
+          {
+            resource: {
+              resourceType: 'Patient',
+              id: samplePatient.id,
+              name: [{ text: samplePatient.name }],
+              gender: samplePatient.gender.toLowerCase(),
+              birthDate: '1979-03-15'
+            }
+          },
+          {
+            resource: {
+              resourceType: 'Encounter',
+              id: `encounter-${Date.now()}`,
+              status: 'finished',
+              class: { code: 'AMB', display: 'ambulatory' },
+              subject: { reference: `Patient/${samplePatient.id}` },
+              period: {
+                start: new Date().toISOString(),
+                end: new Date().toISOString()
+              }
+            }
+          },
+          {
+            resource: {
+              resourceType: 'Condition',
+              id: `condition-${Date.now()}`,
+              subject: { reference: `Patient/${samplePatient.id}` },
+              code: {
+                coding: [
+                  {
+                    system: 'http://namstp.ayush.gov.in/fhir/CodeSystem/NAMASTE',
+                    code: selectedTerm.code,
+                    display: selectedTerm.englishTerm
+                  }
+                ]
+              },
+              clinicalStatus: {
+                coding: [{
+                  system: 'http://terminology.hl7.org/CodeSystem/condition-clinical',
+                  code: 'active'
+                }]
+              },
+              note: clinicalNotes ? [{ text: clinicalNotes }] : []
             }
           }
-        },
-        {
-          resource: {
-            resourceType: 'Condition',
-            id: `condition-${Date.now()}`,
-            subject: { reference: `Patient/${samplePatient.id}` },
-            code: {
-              coding: [
-                {
-                  system: 'http://namstp.ayush.gov.in/fhir/CodeSystem/NAMASTE',
-                  code: selectedTerm.code,
-                  display: selectedTerm.term
-                },
-                ...(mapping ? [{
-                  system: 'http://id.who.int/icd/release/11/mms',
-                  code: mapping.icd11Code,
-                  display: mapping.icd11Term
-                }] : [])
-              ]
-            },
-            clinicalStatus: {
-              coding: [{
-                system: 'http://terminology.hl7.org/CodeSystem/condition-clinical',
-                code: 'active'
-              }]
-            },
-            note: clinicalNotes ? [{ text: clinicalNotes }] : []
-          }
-        }
-      ]
-    }
+        ]
+      }
 
-    setDualCodedRecord(record)
-    setCurrentStep(4)
+      // Submit to backend for dual coding
+      const response = await terminologyAPI.submitEncounter(bundle)
+      setDualCodedRecord({ ...bundle, response })
+      setCurrentStep(4)
+      toast.success('Encounter successfully processed with dual coding')
+      
+    } catch (error) {
+      console.error('Error submitting encounter:', error)
+      toast.error('Failed to process encounter. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const steps = [
@@ -253,6 +255,19 @@ export default function ClinicalDemo() {
                 </div>
 
                 <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {searchLoading && searchTerm.trim() && (
+                    <div className="flex items-center justify-center p-4">
+                      <Spinner className="h-5 w-5 animate-spin text-primary" />
+                      <span className="ml-2 text-muted-foreground">Searching...</span>
+                    </div>
+                  )}
+
+                  {!searchLoading && searchTerm.trim() && filteredTerminologies.length === 0 && (
+                    <div className="p-4 text-center text-muted-foreground">
+                      No matching terminologies found. Try a different search term.
+                    </div>
+                  )}
+
                   {filteredTerminologies.map((term) => (
                     <div 
                       key={term.code}
@@ -269,7 +284,7 @@ export default function ClinicalDemo() {
                             <Badge variant="outline" className="font-mono text-xs">{term.code}</Badge>
                             <Badge className="capitalize">{term.system}</Badge>
                           </div>
-                          <h4 className="font-medium mt-1">{term.term}</h4>
+                          <h4 className="font-medium mt-1">{term.englishTerm}</h4>
                           <p className="text-sm text-muted-foreground">{term.definition}</p>
                         </div>
                         {selectedDiagnosis === term.code && (
@@ -311,19 +326,18 @@ export default function ClinicalDemo() {
                 <div>
                   <Label>Selected Diagnosis</Label>
                   <div className="p-3 bg-muted rounded-lg">
-                    {(() => {
-                      const term = sampleTerminologies.find(t => t.code === selectedDiagnosis)
-                      return term ? (
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline" className="font-mono text-xs">{term.code}</Badge>
-                            <Badge className="capitalize">{term.system}</Badge>
-                          </div>
-                          <h4 className="font-medium">{term.term}</h4>
-                          <p className="text-sm text-muted-foreground">{term.definition}</p>
+                    {selectedTerm ? (
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="font-mono text-xs">{selectedTerm.code}</Badge>
+                          <Badge className="capitalize">{selectedTerm.system}</Badge>
                         </div>
-                      ) : null
-                    })()}
+                        <h4 className="font-medium">{selectedTerm.englishTerm}</h4>
+                        <p className="text-sm text-muted-foreground">{selectedTerm.definition}</p>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">No diagnosis selected</p>
+                    )}
                   </div>
                 </div>
 
@@ -342,9 +356,21 @@ export default function ClinicalDemo() {
                   <Button variant="outline" onClick={() => setCurrentStep(2)}>
                     Back
                   </Button>
-                  <Button onClick={handleSubmitEncounter}>
-                    Generate Dual-Coded Record
-                    <ArrowRight className="h-4 w-4 ml-2" />
+                  <Button 
+                    onClick={handleSubmitEncounter}
+                    disabled={!selectedTerm || isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Spinner className="h-4 w-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        Generate Dual-Coded Record
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardContent>
@@ -376,7 +402,7 @@ export default function ClinicalDemo() {
                         <div className="space-y-1">
                           <p><span className="font-medium">System:</span> NAMASTE</p>
                           <p><span className="font-medium">Code:</span> {selectedDiagnosis}</p>
-                          <p><span className="font-medium">Term:</span> {sampleTerminologies.find(t => t.code === selectedDiagnosis)?.term}</p>
+                          <p><span className="font-medium">Term:</span> {selectedTerm?.englishTerm}</p>
                         </div>
                       </div>
                       

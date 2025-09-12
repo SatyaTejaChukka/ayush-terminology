@@ -1,78 +1,50 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { MagnifyingGlass, Leaf, Globe, BookOpen } from '@phosphor-icons/react'
-
-// Sample NAMASTE terminology data
-const sampleTerminologies = [
-  {
-    code: 'AAE-16',
-    system: 'ayurveda',
-    originalTerm: 'सन्धिगतवात',
-    englishTerm: 'Sandhigatavata',
-    definition: 'Osteoarthritis - degenerative joint disease characterized by Vata dosha imbalance',
-    category: 'Musculoskeletal Disorders'
-  },
-  {
-    code: 'AST-23',
-    system: 'ayurveda', 
-    originalTerm: 'अम्लपित्त',
-    englishTerm: 'Amlapitta',
-    definition: 'Hyperacidity - excess acid production due to Pitta dosha aggravation',
-    category: 'Digestive Disorders'
-  },
-  {
-    code: 'SUC-45',
-    system: 'siddha',
-    originalTerm: 'வாத சூலை',
-    englishTerm: 'Vatha Soolai',
-    definition: 'Rheumatoid arthritis - inflammatory joint condition',
-    category: 'Noi Nadal (Pathology)'
-  },
-  {
-    code: 'UNI-12',
-    system: 'unani',
-    originalTerm: 'وجع المفاصل',
-    englishTerm: 'Waja al-Mafasil',
-    definition: 'Joint pain syndrome - musculoskeletal disorder in Unani medicine',
-    category: 'Musculoskeletal'
-  },
-  {
-    code: 'AYU-78',
-    system: 'ayurveda',
-    originalTerm: 'कास',
-    englishTerm: 'Kasa',
-    definition: 'Cough - respiratory disorder with various etiologies',
-    category: 'Respiratory Disorders'
-  },
-  {
-    code: 'SID-89',
-    system: 'siddha',
-    originalTerm: 'கபக் கோட்டம்',
-    englishTerm: 'Kabak Kottam',
-    definition: 'Bronchial asthma - chronic respiratory condition',
-    category: 'Maruthuvam (General Medicine)'
-  }
-]
+import { MagnifyingGlass, Leaf, Globe, BookOpen, Spinner } from '@phosphor-icons/react'
+import { useTerminologySearch, useStatistics, type NAMASTEConcept } from '@/services/terminologyAPI'
 
 export default function TerminologyExplorer() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedSystem, setSelectedSystem] = useState('all')
-  const [selectedTerm, setSelectedTerm] = useState<typeof sampleTerminologies[0] | null>(null)
+  const [selectedTerm, setSelectedTerm] = useState<NAMASTEConcept | null>(null)
+  const [allTerminologies, setAllTerminologies] = useState<NAMASTEConcept[]>([])
 
-  const filteredTerminologies = sampleTerminologies.filter(term => {
-    const matchesSearch = searchTerm === '' || 
-      term.englishTerm.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      term.originalTerm.includes(searchTerm) ||
-      term.definition.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      term.code.toLowerCase().includes(searchTerm.toLowerCase())
-    
+  // Use the real API for search
+  const { results: searchResults, loading: searchLoading, error: searchError } = useTerminologySearch(
+    searchTerm, 
+    selectedSystem === 'all' ? undefined : selectedSystem
+  )
+
+  // Get statistics for counts
+  const { statistics, loading: statsLoading } = useStatistics()
+
+  // Effect to load initial data when no search term
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      // Load some initial terms for display
+      const loadInitialTerms = async () => {
+        try {
+          const { terminologyAPI } = await import('@/services/terminologyAPI')
+          const initialTerms = await terminologyAPI.searchTerminology('', selectedSystem === 'all' ? undefined : selectedSystem, 20)
+          setAllTerminologies(initialTerms)
+        } catch (error) {
+          console.error('Failed to load initial terms:', error)
+        }
+      }
+      loadInitialTerms()
+    }
+  }, [selectedSystem])
+
+  // Use search results if searching, otherwise use all terminologies
+  const terminologies = searchTerm.trim() ? searchResults : allTerminologies
+
+  const filteredTerminologies = terminologies.filter(term => {
     const matchesSystem = selectedSystem === 'all' || term.system === selectedSystem
-    
-    return matchesSearch && matchesSystem
+    return matchesSystem
   })
 
   const getSystemIcon = (system: string) => {
@@ -130,7 +102,14 @@ export default function TerminologyExplorer() {
               <TabsContent value="all" className="mt-4">
                 <div className="space-y-2">
                   <Badge variant="outline" className="w-full justify-start">
-                    {sampleTerminologies.length} Total Terms
+                    {statsLoading ? (
+                      <div className="flex items-center gap-2">
+                        <Spinner className="h-3 w-3 animate-spin" />
+                        Loading...
+                      </div>
+                    ) : (
+                      `${statistics?.total_terms || 0} Total Terms`
+                    )}
                   </Badge>
                 </div>
               </TabsContent>
@@ -147,7 +126,7 @@ export default function TerminologyExplorer() {
                       {getSystemIcon(system)}
                       <span className="ml-2 capitalize">{system}</span>
                       <Badge variant="secondary" className="ml-auto">
-                        {sampleTerminologies.filter(t => t.system === system).length}
+                        {statsLoading ? "..." : (statistics?.system_distribution?.[system] || 0)}
                       </Badge>
                     </Button>
                   ))}
@@ -166,19 +145,19 @@ export default function TerminologyExplorer() {
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Ayurveda Terms</span>
                 <Badge className={getSystemColor('ayurveda')}>
-                  {sampleTerminologies.filter(t => t.system === 'ayurveda').length}
+                  {statsLoading ? "..." : (statistics?.system_distribution?.ayurveda || 0)}
                 </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Siddha Terms</span>
                 <Badge className={getSystemColor('siddha')}>
-                  {sampleTerminologies.filter(t => t.system === 'siddha').length}
+                  {statsLoading ? "..." : (statistics?.system_distribution?.siddha || 0)}
                 </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Unani Terms</span>
                 <Badge className={getSystemColor('unani')}>
-                  {sampleTerminologies.filter(t => t.system === 'unani').length}
+                  {statsLoading ? "..." : (statistics?.system_distribution?.unani || 0)}
                 </Badge>
               </div>
             </div>
@@ -250,7 +229,20 @@ export default function TerminologyExplorer() {
             </div>
 
             <div className="space-y-3">
-              {filteredTerminologies.map((term) => (
+              {(searchLoading || statsLoading) && (
+                <div className="flex items-center justify-center p-8">
+                  <Spinner className="h-6 w-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">Loading...</span>
+                </div>
+              )}
+
+              {searchError && (
+                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <p className="text-sm text-destructive">{searchError}</p>
+                </div>
+              )}
+
+              {!searchLoading && !searchError && filteredTerminologies.map((term) => (
                 <Card 
                   key={term.code}
                   className="cursor-pointer hover:shadow-md transition-shadow"
@@ -277,7 +269,7 @@ export default function TerminologyExplorer() {
                 </Card>
               ))}
 
-              {filteredTerminologies.length === 0 && (
+              {!searchLoading && !searchError && filteredTerminologies.length === 0 && (
                 <Card>
                   <CardContent className="p-8 text-center">
                     <MagnifyingGlass className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

@@ -1,93 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowRight, CheckCircle, AlertCircle, XCircle, Globe, BookOpen, Beaker } from '@phosphor-icons/react'
-
-// Sample mapping data showing NAMASTE to ICD-11 relationships
-const sampleMappings = [
-  {
-    namasteCode: 'AAE-16',
-    namasteTerm: 'Sandhigatavata',
-    originalTerm: 'सन्धिगतवात',
-    system: 'ayurveda',
-    icd11Code: 'FA20',
-    icd11Term: 'Osteoarthritis',
-    equivalence: 'equivalent',
-    confidence: 0.95,
-    mappingType: 'direct',
-    clinicalNotes: 'Direct mapping - both refer to degenerative joint disease'
-  },
-  {
-    namasteCode: 'AST-23',
-    namasteTerm: 'Amlapitta',
-    originalTerm: 'अम्लपित्त',
-    system: 'ayurveda',
-    icd11Code: 'DA60',
-    icd11Term: 'Gastro-oesophageal reflux disease',
-    equivalence: 'relatedto',
-    confidence: 0.78,
-    mappingType: 'contextual',
-    clinicalNotes: 'Related condition - hyperacidity maps to GERD in biomedical terms'
-  },
-  {
-    namasteCode: 'SUC-45',
-    namasteTerm: 'Vatha Soolai',
-    originalTerm: 'வாத சூலை',
-    system: 'siddha',
-    icd11Code: 'FA20.0&XK8G',
-    icd11Term: 'Rheumatoid arthritis of multiple sites',
-    equivalence: 'wider',
-    confidence: 0.85,
-    mappingType: 'clustered',
-    clinicalNotes: 'Post-coordinated mapping using stem + extension codes'
-  },
-  {
-    namasteCode: 'UNI-12',
-    namasteTerm: 'Waja al-Mafasil',
-    originalTerm: 'وجع المفاصل',
-    system: 'unani',
-    icd11Code: 'MG30',
-    icd11Term: 'Joint pain',
-    equivalence: 'equivalent',
-    confidence: 0.92,
-    mappingType: 'direct',
-    clinicalNotes: 'Exact semantic match for joint pain syndrome'
-  },
-  {
-    namasteCode: 'AYU-78',
-    namasteTerm: 'Kasa',
-    originalTerm: 'कास',
-    system: 'ayurveda',
-    icd11Code: 'MD12',
-    icd11Term: 'Cough',
-    equivalence: 'equivalent',
-    confidence: 0.98,
-    mappingType: 'direct',
-    clinicalNotes: 'Perfect equivalence - symptom-based mapping'
-  },
-  {
-    namasteCode: 'AYU-99',
-    namasteTerm: 'Unmada',
-    originalTerm: 'उन्माद',
-    system: 'ayurveda',
-    icd11Code: null,
-    icd11Term: null,
-    equivalence: 'unmatched',
-    confidence: 0,
-    mappingType: 'unmapped',
-    clinicalNotes: 'Complex traditional concept with no direct biomedical equivalent'
-  }
-]
+import { ArrowRight, CheckCircle, AlertCircle, XCircle, Globe, BookOpen, Beaker, Spinner } from '@phosphor-icons/react'
+import { useConceptMappings, useStatistics, type ConceptMapping } from '@/services/terminologyAPI'
 
 export default function MappingVisualization() {
-  const [selectedMapping, setSelectedMapping] = useState<typeof sampleMappings[0] | null>(null)
+  const [selectedMapping, setSelectedMapping] = useState<ConceptMapping | null>(null)
   const [filterEquivalence, setFilterEquivalence] = useState('all')
 
-  const filteredMappings = sampleMappings.filter(mapping => 
-    filterEquivalence === 'all' || mapping.equivalence === filterEquivalence
+  // Use real API for mappings and statistics
+  const { mappings, loading: mappingsLoading, error: mappingsError } = useConceptMappings(
+    filterEquivalence === 'all' ? undefined : filterEquivalence
   )
+  const { statistics, loading: statsLoading } = useStatistics()
+
+  const filteredMappings = mappings
 
   const getEquivalenceIcon = (equivalence: string) => {
     switch (equivalence) {
@@ -134,12 +63,18 @@ export default function MappingVisualization() {
     }
   }
 
-  const stats = {
-    total: sampleMappings.length,
-    equivalent: sampleMappings.filter(m => m.equivalence === 'equivalent').length,
-    relatedto: sampleMappings.filter(m => m.equivalence === 'relatedto').length,
-    wider: sampleMappings.filter(m => m.equivalence === 'wider').length,
-    unmatched: sampleMappings.filter(m => m.equivalence === 'unmatched').length
+  const stats = statistics ? {
+    total: statistics.total_terms,
+    equivalent: statistics.equivalence_distribution?.equivalent || 0,
+    relatedto: statistics.equivalence_distribution?.relatedto || 0,
+    wider: statistics.equivalence_distribution?.wider || 0,
+    unmatched: statistics.equivalence_distribution?.unmatched || 0
+  } : {
+    total: 0,
+    equivalent: 0,
+    relatedto: 0,
+    wider: 0,
+    unmatched: 0
   }
 
   return (
@@ -148,31 +83,41 @@ export default function MappingVisualization() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-primary">{stats.total}</div>
+            <div className="text-2xl font-bold text-primary">
+              {statsLoading ? <Spinner className="h-6 w-6 animate-spin mx-auto" /> : stats.total}
+            </div>
             <div className="text-sm text-muted-foreground">Total Mappings</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{stats.equivalent}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {statsLoading ? <Spinner className="h-6 w-6 animate-spin mx-auto" /> : stats.equivalent}
+            </div>
             <div className="text-sm text-muted-foreground">Equivalent</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-600">{stats.relatedto}</div>
+            <div className="text-2xl font-bold text-yellow-600">
+              {statsLoading ? <Spinner className="h-6 w-6 animate-spin mx-auto" /> : stats.relatedto}
+            </div>
             <div className="text-sm text-muted-foreground">Related</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{stats.wider}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {statsLoading ? <Spinner className="h-6 w-6 animate-spin mx-auto" /> : stats.wider}
+            </div>
             <div className="text-sm text-muted-foreground">Wider/Narrower</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">{stats.unmatched}</div>
+            <div className="text-2xl font-bold text-red-600">
+              {statsLoading ? <Spinner className="h-6 w-6 animate-spin mx-auto" /> : stats.unmatched}
+            </div>
             <div className="text-sm text-muted-foreground">Unmatched</div>
           </CardContent>
         </Card>
@@ -193,7 +138,14 @@ export default function MappingVisualization() {
                 </TabsList>
                 <TabsContent value="all" className="mt-4">
                   <div className="text-sm text-muted-foreground">
-                    Showing all {sampleMappings.length} mapping relationships
+                    {mappingsLoading ? (
+                      <div className="flex items-center gap-2">
+                        <Spinner className="h-3 w-3 animate-spin" />
+                        Loading mappings...
+                      </div>
+                    ) : (
+                      `Showing all ${mappings.length} mapping relationships`
+                    )}
                   </div>
                 </TabsContent>
                 <TabsContent value="filter" className="mt-4 space-y-2">
@@ -208,7 +160,7 @@ export default function MappingVisualization() {
                       {getEquivalenceIcon(eq)}
                       <span className="ml-2 capitalize">{eq.replace('to', ' to')}</span>
                       <Badge variant="secondary" className="ml-auto">
-                        {sampleMappings.filter(m => m.equivalence === eq).length}
+                        {statsLoading ? "..." : (statistics?.equivalence_distribution?.[eq] || 0)}
                       </Badge>
                     </Button>
                   ))}
@@ -334,7 +286,20 @@ export default function MappingVisualization() {
                 )}
               </div>
 
-              {filteredMappings.map((mapping) => (
+              {mappingsLoading && (
+                <div className="flex items-center justify-center p-8">
+                  <Spinner className="h-6 w-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">Loading mappings...</span>
+                </div>
+              )}
+
+              {mappingsError && (
+                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <p className="text-sm text-destructive">{mappingsError}</p>
+                </div>
+              )}
+
+              {!mappingsLoading && !mappingsError && filteredMappings.map((mapping) => (
                 <Card 
                   key={mapping.namasteCode}
                   className="cursor-pointer hover:shadow-md transition-shadow"
@@ -378,6 +343,18 @@ export default function MappingVisualization() {
                   </CardContent>
                 </Card>
               ))}
+
+              {!mappingsLoading && !mappingsError && filteredMappings.length === 0 && (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <XCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="font-medium mb-2">No mappings found</h3>
+                    <p className="text-muted-foreground">
+                      Try adjusting your filter criteria or check back later.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </div>
