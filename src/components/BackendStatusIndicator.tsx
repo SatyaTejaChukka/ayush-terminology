@@ -4,16 +4,55 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CheckCircle, XCircle, Clock, RefreshCw, WifiOff, Server } from '@phosphor-icons/react'
-import { useBackendStatus, BackendHealthChecker } from '@/utils/backendHealthChecker'
+import { terminologyAPI } from '@/services/terminologyAPI'
 
 export default function BackendStatusIndicator() {
-  const { status, loading } = useBackendStatus(true)
+  const [status, setStatus] = useState<{
+    isConnected: boolean
+    isHealthy: boolean
+    latency: number
+    version: string
+    error?: string
+  } | null>(null)
+  const [loading, setLoading] = useState(true)
   const [isRetrying, setIsRetrying] = useState(false)
+
+  const checkHealth = async () => {
+    const startTime = Date.now()
+    
+    try {
+      await terminologyAPI.healthCheck()
+      const latency = Date.now() - startTime
+      
+      setStatus({
+        isConnected: true,
+        isHealthy: true,
+        latency,
+        version: '1.0.0'
+      })
+    } catch (error) {
+      setStatus({
+        isConnected: false,
+        isHealthy: false,
+        latency: 0,
+        version: 'Unknown',
+        error: error instanceof Error ? error.message : 'Connection failed'
+      })
+    }
+  }
+
+  useEffect(() => {
+    checkHealth().finally(() => setLoading(false))
+    
+    // Check every 30 seconds
+    const interval = setInterval(checkHealth, 30000)
+    
+    return () => clearInterval(interval)
+  }, [])
 
   const handleRetry = async () => {
     setIsRetrying(true)
-    const checker = BackendHealthChecker.getInstance()
-    await checker.checkHealth()
+    await checkHealth()
     setIsRetrying(false)
   }
 

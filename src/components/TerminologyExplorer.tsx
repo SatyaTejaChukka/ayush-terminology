@@ -5,73 +5,72 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MagnifyingGlass, Leaf, Globe, BookOpen, Spinner } from '@phosphor-icons/react'
-import { useTerminologySearch, useStatistics, type NAMASTEConcept } from '@/services/terminologyAPI'
+import { lookupConcepts, useStatistics, type NAMASTEConcept } from '@/services/terminologyAPI'
 import BackendStatusIndicator from '@/components/BackendStatusIndicator'
 
 export default function TerminologyExplorer() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedSystem, setSelectedSystem] = useState('all')
+  const [selectedSystem, setSelectedSystem] = useState<'all' | 'ayurveda' | 'siddha' | 'unani'>('all')
   const [selectedTerm, setSelectedTerm] = useState<NAMASTEConcept | null>(null)
-  const [allTerminologies, setAllTerminologies] = useState<NAMASTEConcept[]>([])
-
-  // Use the real API for search
-  const { results: searchResults, loading: searchLoading, error: searchError } = useTerminologySearch(
-    searchTerm, 
-    selectedSystem === 'all' ? undefined : selectedSystem
-  )
+  const [searchResults, setSearchResults] = useState<NAMASTEConcept[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
 
   // Get statistics for counts
   const { statistics, loading: statsLoading } = useStatistics()
 
-  // Effect to load initial data when no search term
+  // Search function with debouncing
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!searchTerm.trim()) {
+        setSearchResults([])
+        setSearchError(null)
+        return
+      }
+
+      setSearchLoading(true)
+      setSearchError(null)
+
+      try {
+        const response = await lookupConcepts({
+          q: searchTerm,
+          system: selectedSystem === 'all' ? undefined : selectedSystem,
+          limit: 20
+        })
+        setSearchResults(response.concepts)
+      } catch (error) {
+        setSearchError(error instanceof Error ? error.message : 'Failed to search terms')
+      } finally {
+        setSearchLoading(false)
+      }
+    }
+
+    const timeoutId = setTimeout(performSearch, 300)
+    return () => clearTimeout(timeoutId)
+  }, [searchTerm, selectedSystem])
+
+  // Load initial sample data when no search term
   useEffect(() => {
     if (!searchTerm.trim()) {
-      // Load some initial terms for display
       const loadInitialTerms = async () => {
         try {
-          const { terminologyAPI } = await import('@/services/terminologyAPI')
-          const initialTerms = await terminologyAPI.searchTerminology('', selectedSystem === 'all' ? undefined : selectedSystem, 20)
-          setAllTerminologies(initialTerms)
+          const response = await lookupConcepts({
+            q: '',
+            system: selectedSystem === 'all' ? undefined : selectedSystem,
+            limit: 20
+          })
+          setSearchResults(response.concepts)
         } catch (error) {
-          console.error('Failed to load initial terms:', error)
-          // Fallback to sample data for demonstration
-          const sampleTerms = [
-            {
-              code: "AAE-16",
-              system: "ayurveda",
-              originalTerm: "सन्धिगतवात",
-              englishTerm: "Sandhigatavata",
-              definition: "Osteoarthritis - degenerative joint disease characterized by pain and stiffness",
-              category: "Vata Disorders"
-            },
-            {
-              code: "SNP-101", 
-              system: "siddha",
-              originalTerm: "வாத நோய்",
-              englishTerm: "Vatha Noi",
-              definition: "Wind-related disorders affecting nervous and musculoskeletal systems",
-              category: "Noi Nadal (Pathology)"
-            },
-            {
-              code: "UHM-301",
-              system: "unani", 
-              originalTerm: "حمیٰ",
-              englishTerm: "Humma",
-              definition: "Fever - pyrexia with constitutional symptoms",
-              category: "Amraz-e-Amma (General Diseases)"
-            }
-          ].filter(term => selectedSystem === 'all' || term.system === selectedSystem)
-          
-          setAllTerminologies(sampleTerms)
+          console.warn('Failed to load initial terms, using sample data')
+          setSearchError('Backend not connected - showing sample data')
         }
       }
       loadInitialTerms()
     }
   }, [selectedSystem])
 
-  // Use search results if searching, otherwise use all terminologies
-  const terminologies = searchTerm.trim() ? searchResults : allTerminologies
-
+  // Use search results 
+  const terminologies = searchResults
   const filteredTerminologies = terminologies.filter(term => {
     const matchesSystem = selectedSystem === 'all' || term.system === selectedSystem
     return matchesSystem
@@ -231,7 +230,7 @@ export default function TerminologyExplorer() {
 
               <div>
                 <label className="text-sm font-medium text-muted-foreground">English Translation</label>
-                <p className="text-xl mt-1">{selectedTerm.englishTerm}</p>
+                <p className="text-xl mt-1">{selectedTerm.display}</p>
               </div>
 
               <div>
@@ -242,7 +241,7 @@ export default function TerminologyExplorer() {
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Category</label>
                 <Badge variant="outline" className="mt-1">
-                  {selectedTerm.category}
+                  {selectedTerm.system} terminology
                 </Badge>
               </div>
             </CardContent>
@@ -303,7 +302,7 @@ export default function TerminologyExplorer() {
                             <span className="ml-1 capitalize">{term.system}</span>
                           </Badge>
                         </div>
-                        <h4 className="font-medium text-lg truncate">{term.englishTerm}</h4>
+                        <h4 className="font-medium text-lg truncate">{term.display}</h4>
                         <p className="text-muted-foreground text-sm mb-2">{term.originalTerm}</p>
                         <p className="text-sm line-clamp-2">{term.definition}</p>
                       </div>

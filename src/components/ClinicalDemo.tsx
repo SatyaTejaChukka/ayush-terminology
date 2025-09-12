@@ -19,7 +19,7 @@ import {
   FileText,
   Spinner
 } from '@phosphor-icons/react'
-import { useTerminologySearch, terminologyAPI, type NAMASTEConcept } from '@/services/terminologyAPI'
+import { useStatistics, lookupConcepts, translateConcept, terminologyAPI, type NAMASTEConcept } from '@/services/terminologyAPI'
 import { toast } from 'sonner'
 
 // Sample patient and clinical data
@@ -44,19 +44,57 @@ export default function ClinicalDemo() {
   const [selectedDiagnosis, setSelectedDiagnosis] = useState('')
   const [selectedTerm, setSelectedTerm] = useState<NAMASTEConcept | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [searchResults, setSearchResults] = useState<NAMASTEConcept[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
   const [clinicalNotes, setClinicalNotes] = useState('')
   const [dualCodedRecord, setDualCodedRecord] = useState<any>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Use real API for terminology search
-  const { results: searchResults, loading: searchLoading } = useTerminologySearch(searchTerm)
+  // Search function with debouncing
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!searchTerm.trim()) {
+        setSearchResults([])
+        return
+      }
 
-  const filteredTerminologies = searchTerm.trim() ? searchResults : []
+      setSearchLoading(true)
+      try {
+        const response = await lookupConcepts({
+          q: searchTerm,
+          limit: 10
+        })
+        setSearchResults(response.concepts)
+      } catch (error) {
+        console.warn('Search failed, using sample data')
+        // Fallback to filtered sample data
+        const filtered = sampleTerminologies.filter(t => 
+          t.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          t.definition.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          t.code.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        setSearchResults(filtered.map(t => ({
+          code: t.code,
+          display: t.term,
+          originalTerm: t.term,
+          definition: t.definition,
+          system: t.system as 'ayurveda' | 'siddha' | 'unani'
+        })))
+      } finally {
+        setSearchLoading(false)
+      }
+    }
+
+    const timeoutId = setTimeout(performSearch, 300)
+    return () => clearTimeout(timeoutId)
+  }, [searchTerm])
+
+  const filteredTerminologies = searchResults
 
   const handleDiagnosisSelect = (diagnosis: NAMASTEConcept) => {
     setSelectedDiagnosis(diagnosis.code)
     setSelectedTerm(diagnosis)
-    setSearchTerm(diagnosis.englishTerm)
+    setSearchTerm(diagnosis.display)
   }
 
   const handleSubmitEncounter = async () => {
@@ -111,7 +149,7 @@ export default function ClinicalDemo() {
                   {
                     system: 'http://namstp.ayush.gov.in/fhir/CodeSystem/NAMASTE',
                     code: selectedTerm.code,
-                    display: selectedTerm.englishTerm
+                    display: selectedTerm.display
                   }
                 ]
               },
@@ -432,7 +470,7 @@ export default function ClinicalDemo() {
                             <Badge variant="outline" className="font-mono text-xs">{term.code}</Badge>
                             <Badge className="capitalize">{term.system}</Badge>
                           </div>
-                          <h4 className="font-medium mt-1">{term.englishTerm}</h4>
+                          <h4 className="font-medium mt-1">{term.display}</h4>
                           <p className="text-sm text-muted-foreground">{term.definition}</p>
                         </div>
                         {selectedDiagnosis === term.code && (
@@ -480,7 +518,7 @@ export default function ClinicalDemo() {
                           <Badge variant="outline" className="font-mono text-xs">{selectedTerm.code}</Badge>
                           <Badge className="capitalize">{selectedTerm.system}</Badge>
                         </div>
-                        <h4 className="font-medium">{selectedTerm.englishTerm}</h4>
+                        <h4 className="font-medium">{selectedTerm.display}</h4>
                         <p className="text-sm text-muted-foreground">{selectedTerm.definition}</p>
                       </div>
                     ) : (
@@ -577,8 +615,8 @@ export default function ClinicalDemo() {
                               <div className="space-y-1 text-sm">
                                 <p><span className="font-medium">System:</span> NAMASTE</p>
                                 <p><span className="font-medium">Code:</span> {namaseCoding?.code || selectedDiagnosis}</p>
-                                <p><span className="font-medium">Term:</span> {namaseCoding?.display || selectedTerm?.englishTerm}</p>
-                                <p><span className="font-medium">Category:</span> {selectedTerm?.category}</p>
+                                <p><span className="font-medium">Term:</span> {namaseCoding?.display || selectedTerm?.display}</p>
+                                <p><span className="font-medium">Category:</span> {selectedTerm?.system} terminology</p>
                               </div>
                             </div>
                             

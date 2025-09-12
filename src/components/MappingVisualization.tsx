@@ -4,19 +4,119 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ArrowRight, CheckCircle, AlertCircle, XCircle, Globe, BookOpen, Beaker, Spinner } from '@phosphor-icons/react'
-import { useConceptMappings, useStatistics, type ConceptMapping } from '@/services/terminologyAPI'
+import { useStatistics, type ConceptMapping } from '@/services/terminologyAPI'
+
+// Sample mappings data - this would come from the API in production
+const sampleMappings: ConceptMapping[] = [
+  {
+    namasteCode: "AAE-16",
+    namasteTerm: "Sandhigatavata",
+    originalTerm: "सन्धिगतवात",
+    system: "ayurveda",
+    icd11Code: "FA3Z",
+    icd11Term: "Osteoarthritis, unspecified",
+    equivalence: "equivalent",
+    confidence: 0.85,
+    mappingType: "direct",
+    clinicalNotes: "Strong correlation between Sandhigatavata and osteoarthritis symptoms"
+  },
+  {
+    namasteCode: "AAE-23", 
+    namasteTerm: "Amavata",
+    originalTerm: "आमवात",
+    system: "ayurveda",
+    icd11Code: "FA20.0",
+    icd11Term: "Rheumatoid arthritis",
+    equivalence: "equivalent",
+    confidence: 0.8,
+    mappingType: "direct",
+    clinicalNotes: "Amavata presentation closely matches rheumatoid arthritis criteria"
+  },
+  {
+    namasteCode: "AAE-45",
+    namasteTerm: "Prameha",
+    originalTerm: "प्रमेह",
+    system: "ayurveda", 
+    icd11Code: "5A11",
+    icd11Term: "Type 2 diabetes mellitus",
+    equivalence: "wider",
+    confidence: 0.7,
+    mappingType: "contextual",
+    clinicalNotes: "Prameha encompasses broader urinary disorders; diabetes is primary subset"
+  },
+  {
+    namasteCode: "SSE-12",
+    namasteTerm: "Vali Gunmam",
+    originalTerm: "வாலி குன்மம்",
+    system: "siddha",
+    icd11Code: "2C7Y",
+    icd11Term: "Benign neoplasm of abdomen, unspecified",
+    equivalence: "relatedto",
+    confidence: 0.6,
+    mappingType: "contextual",
+    clinicalNotes: "Traditional concept of abdominal masses; modern classification more specific"
+  },
+  {
+    namasteCode: "UUE-55",
+    namasteTerm: "Waram",
+    originalTerm: "ورام",
+    system: "unani",
+    icd11Code: "EH90",
+    icd11Term: "Inflammatory conditions",
+    equivalence: "equivalent",
+    confidence: 0.9,
+    mappingType: "direct",
+    clinicalNotes: "Waram directly corresponds to modern inflammatory disease classification"
+  },
+  {
+    namasteCode: "AAE-89",
+    namasteTerm: "Unmada",
+    originalTerm: "उन्माद",
+    system: "ayurveda",
+    icd11Code: null,
+    icd11Term: null,
+    equivalence: "unmatched",
+    confidence: 0,
+    mappingType: "unmapped",
+    clinicalNotes: "Complex traditional mental health concept with no direct ICD-11 equivalent"
+  }
+]
 
 export default function MappingVisualization() {
   const [selectedMapping, setSelectedMapping] = useState<ConceptMapping | null>(null)
   const [filterEquivalence, setFilterEquivalence] = useState('all')
+  const [mappings, setMappings] = useState<ConceptMapping[]>([])
+  const [mappingsLoading, setMappingsLoading] = useState(true)
+  const [mappingsError, setMappingsError] = useState<string | null>(null)
 
-  // Use real API for mappings and statistics
-  const { mappings, loading: mappingsLoading, error: mappingsError } = useConceptMappings(
-    filterEquivalence === 'all' ? undefined : filterEquivalence
-  )
+  // Get statistics for counts
   const { statistics, loading: statsLoading } = useStatistics()
 
-  const filteredMappings = mappings
+  // Load mappings
+  useEffect(() => {
+    const loadMappings = async () => {
+      setMappingsLoading(true)
+      setMappingsError(null)
+      
+      try {
+        // In a real implementation, this would call the API
+        // For now, simulate loading and use sample data
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        setMappings(sampleMappings)
+      } catch (error) {
+        setMappingsError('Backend not connected - showing sample mappings')
+        setMappings(sampleMappings)
+      } finally {
+        setMappingsLoading(false)
+      }
+    }
+
+    loadMappings()
+  }, [])
+
+  const filteredMappings = filterEquivalence === 'all' 
+    ? mappings 
+    : mappings.filter(m => m.equivalence === filterEquivalence)
 
   const getEquivalenceIcon = (equivalence: string) => {
     switch (equivalence) {
